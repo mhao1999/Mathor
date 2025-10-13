@@ -246,34 +246,55 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
         }
     }
     
-    qDebug() << "GeometrySolver: Total constraints added:" << m_sys.constraints;
-    
-    // 设置拖拽约束 - 固定不被拖拽的点
-    // 在SolveSpaceLib中，dragged数组包含应该被固定的参数
-    // 被拖拽的点不应该在dragged数组中，这样它就可以自由移动
-    int draggedCount = 0;
-    for (auto it = pointPositions.begin(); it != pointPositions.end(); ++it) {
-        int pointId = it.key().toInt();
-        if (pointId != draggedPointId) {
-            // 这个点不是被拖拽的点，应该被固定
-            if (pointToParamX.contains(pointId) && pointToParamY.contains(pointId)) {
-                if (draggedCount < 4) {  // SolveSpaceLib最多支持4个拖拽参数
-                    m_sys.dragged[draggedCount++] = pointToParamX[pointId];
-                    if (draggedCount < 4) {
-                        m_sys.dragged[draggedCount++] = pointToParamY[pointId];
-                    }
-                }
-            }
-        }
+    // 添加点1的固定约束，确保点1不会移动
+    if (pointToEntity.contains(1)) {
+        // 获取点1的初始坐标
+        QVariantMap point1Pos = pointPositions["1"].toMap();
+        double x1 = point1Pos["x"].toDouble();
+        double y1 = point1Pos["y"].toDouble();
+        
+        // 添加点1的固定约束 - 使用拖拽约束
+        int constraintId = m_sys.constraints + 1;
+        m_sys.constraint[m_sys.constraints++] = Slvs_MakeConstraint(
+            constraintId, g,
+            SLVS_C_WHERE_DRAGGED,
+            200,
+            0.0,
+            pointToEntity[1], 0, 0, 0);
+        
+        qDebug() << "GeometrySolver: Added point1 fixed constraint" << constraintId
+                 << "for entity" << pointToEntity[1] << "at position" << x1 << y1;
     }
     
-    // 填充剩余的拖拽参数为0
-    for (int i = draggedCount; i < 4; i++) {
+    qDebug() << "GeometrySolver: Total constraints added:" << m_sys.constraints;
+    
+    // 不使用dragged数组，而是通过约束来固定点1
+    // 清空dragged数组
+    for (int i = 0; i < 4; i++) {
         m_sys.dragged[i] = 0;
     }
     
-    qDebug() << "GeometrySolver: Setting drag constraints - fixed" << draggedCount << "parameters";
-    qDebug() << "GeometrySolver: Dragged point" << draggedPointId << "is free to move";
+    // 使用dragged数组来指定被拖拽的参数（点2）
+    // dragged数组中的参数是会被拖拽的参数，不是被固定的参数
+    if (pointToParamX.contains(draggedPointId) && pointToParamY.contains(draggedPointId)) {
+        m_sys.dragged[0] = pointToParamX[draggedPointId];  // 拖拽点2的X参数
+        m_sys.dragged[1] = pointToParamY[draggedPointId];  // 拖拽点2的Y参数
+        m_sys.dragged[2] = 0;  // 未使用
+        m_sys.dragged[3] = 0;  // 未使用
+        
+        qDebug() << "GeometrySolver: Dragged point" << draggedPointId << "parameters:" 
+                 << pointToParamX[draggedPointId] << pointToParamY[draggedPointId];
+    }
+    
+    qDebug() << "GeometrySolver: Using dragged array to specify dragged parameters";
+    qDebug() << "GeometrySolver: Point1 should be fixed, point2 should move";
+    
+    // 输出每个点的参数ID
+    for (auto it = pointToParamX.begin(); it != pointToParamX.end(); ++it) {
+        int pointId = it.key();
+        qDebug() << "GeometrySolver: Point" << pointId << "X param:" << it.value() 
+                 << "Y param:" << pointToParamY[pointId];
+    }
     
     // 启用失败约束计算
     m_sys.calculateFaileds = 1;
@@ -287,21 +308,34 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     
     if (m_sys.result == SLVS_RESULT_OKAY) {
         // 保存求解后的坐标到成员变量（为了兼容现有接口）
-        // 这里简化处理，只保存前两个点
-        int pointCount = 0;
-        for (int i = 0; i < m_sys.params && pointCount < 4; i++) {
+        // 按照点ID来分配坐标，而不是按照参数数组顺序
+        for (int i = 0; i < m_sys.params; i++) {
             if (m_sys.param[i].group == g) {
-                if (pointCount == 0) {
-                    m_solvedX1 = m_sys.param[i].val;
-                } else if (pointCount == 1) {
-                    m_solvedY1 = m_sys.param[i].val;
-                } else if (pointCount == 2) {
-                    m_solvedX2 = m_sys.param[i].val;
-                } else if (pointCount == 3) {
-                    m_solvedY2 = m_sys.param[i].val;
-                    break;
+                // 查找这个参数对应的点ID
+                for (auto it = pointToParamX.begin(); it != pointToParamX.end(); ++it) {
+                    int pointId = it.key();
+                    if (it.value() == m_sys.param[i].h) {
+                        // 这是点ID的X坐标
+                        if (pointId == 1) {
+                            m_solvedX1 = m_sys.param[i].val;
+                        } else if (pointId == 2) {
+                            m_solvedX2 = m_sys.param[i].val;
+                        }
+                        break;
+                    }
                 }
-                pointCount++;
+                for (auto it = pointToParamY.begin(); it != pointToParamY.end(); ++it) {
+                    int pointId = it.key();
+                    if (it.value() == m_sys.param[i].h) {
+                        // 这是点ID的Y坐标
+                        if (pointId == 1) {
+                            m_solvedY1 = m_sys.param[i].val;
+                        } else if (pointId == 2) {
+                            m_solvedY2 = m_sys.param[i].val;
+                        }
+                        break;
+                    }
+                }
             }
         }
         
