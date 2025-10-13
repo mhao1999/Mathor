@@ -4,6 +4,7 @@
 #include <QDebug>
 #include "GeometrySolver.h"
 #include "main/eadrawingarea.h"
+#include "main/easession.h"
 
 int main(int argc, char *argv[])
 {
@@ -15,6 +16,7 @@ int main(int argc, char *argv[])
     // 注册自定义类型到QML
     qmlRegisterType<GeometrySolver>("Mathor.Solver", 1, 0, "GeometrySolver");
     qmlRegisterType<EaDrawingArea>("Mathor.Drawing", 1, 0, "DrawingArea");
+    // qmlRegisterType<EaSession>("Mathor.Session", 1, 0, "EaSession");
 
     // 创建一个GeometrySolver实例用于测试
     GeometrySolver solver;
@@ -48,8 +50,12 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
     
-    // 将solver实例作为上下文属性暴露给QML
+    // 获取EaSession单例实例
+    EaSession* session = EaSession::getInstance();
+    
+    // 将solver和session实例作为上下文属性暴露给QML
     engine.rootContext()->setContextProperty("globalSolver", &solver);
+    engine.rootContext()->setContextProperty("globalSession", session);
     
     const QUrl url(QStringLiteral("qrc:/DrawingAreaDemo.qml"));
     QObject::connect(

@@ -23,8 +23,8 @@ Window {
             if (success) {
                 // 更新绘图区域中的点位置
                 var points = solver.getSolvedPoints()
-                drawingArea.updatePointPosition(1, points.x1, points.y1)
-                drawingArea.updatePointPosition(2, points.x2, points.y2)
+                globalSession.updatePointPosition(1, points.x1, points.y1)
+                globalSession.updatePointPosition(2, points.x2, points.y2)
                 
                 statusText.text = "求解成功! 自由度: " + solver.dof
                 statusText.color = "green"
@@ -212,7 +212,7 @@ Window {
                                 text: "添加点 (10, 20)"
                                 Layout.fillWidth: true
                                 onClicked: {
-                                    drawingArea.addPoint(10, 20)
+                                    globalSession.addPoint(10, 20)
                                 }
                             }
                             
@@ -220,7 +220,7 @@ Window {
                                 text: "添加点 (50, 60)"
                                 Layout.fillWidth: true
                                 onClicked: {
-                                    drawingArea.addPoint(50, 60)
+                                    globalSession.addPoint(50, 60)
                                 }
                             }
                             
@@ -229,7 +229,7 @@ Window {
                                 Layout.fillWidth: true
                                 enabled: drawingArea !== null
                                 onClicked: {
-                                    drawingArea.addLine(1, 2)
+                                    globalSession.addLine(1, 2)
                                 }
                             }
                             
@@ -243,7 +243,7 @@ Window {
                                 text: "清空所有"
                                 Layout.fillWidth: true
                                 onClicked: {
-                                    drawingArea.clear()
+                                    globalSession.clear()
                                     statusText.text = "已清空"
                                 }
                             }
@@ -316,10 +316,10 @@ Window {
                                 text: "示例 1: 两点距离约束"
                                 Layout.fillWidth: true
                                 onClicked: {
-                                    drawingArea.clear()
-                                    drawingArea.addPoint(10, 20)
-                                    drawingArea.addPoint(50, 60)
-                                    drawingArea.addLine(1, 2)
+                                    globalSession.clear()
+                                    globalSession.addPoint(10, 20)
+                                    globalSession.addPoint(50, 60)
+                                    globalSession.addLine(1, 2)
                                     
                                     // 求解
                                     solver.solveSimple2DDistance(10, 20, 50, 60, 100.0)
@@ -330,13 +330,13 @@ Window {
                                 text: "示例 2: 三角形"
                                 Layout.fillWidth: true
                                 onClicked: {
-                                    drawingArea.clear()
-                                    drawingArea.addPoint(0, 0)
-                                    drawingArea.addPoint(50, 0)
-                                    drawingArea.addPoint(25, 40)
-                                    drawingArea.addLine(1, 2)
-                                    drawingArea.addLine(2, 3)
-                                    drawingArea.addLine(3, 1)
+                                    globalSession.clear()
+                                    globalSession.addPoint(0, 0)
+                                    globalSession.addPoint(50, 0)
+                                    globalSession.addPoint(25, 40)
+                                    globalSession.addLine(1, 2)
+                                    globalSession.addLine(2, 3)
+                                    globalSession.addLine(3, 1)
                                     statusText.text = "已创建三角形"
                                 }
                             }
@@ -345,15 +345,15 @@ Window {
                                 text: "示例 3: 矩形"
                                 Layout.fillWidth: true
                                 onClicked: {
-                                    drawingArea.clear()
-                                    drawingArea.addPoint(0, 0)
-                                    drawingArea.addPoint(60, 0)
-                                    drawingArea.addPoint(60, 40)
-                                    drawingArea.addPoint(0, 40)
-                                    drawingArea.addLine(1, 2)
-                                    drawingArea.addLine(2, 3)
-                                    drawingArea.addLine(3, 4)
-                                    drawingArea.addLine(4, 1)
+                                    globalSession.clear()
+                                    globalSession.addPoint(0, 0)
+                                    globalSession.addPoint(60, 0)
+                                    globalSession.addPoint(60, 40)
+                                    globalSession.addPoint(0, 40)
+                                    globalSession.addLine(1, 2)
+                                    globalSession.addLine(2, 3)
+                                    globalSession.addLine(3, 4)
+                                    globalSession.addLine(4, 1)
                                     statusText.text = "已创建矩形"
                                 }
                             }
@@ -385,4 +385,5 @@ Window {
         }
     }
 }
+
 

@@ -7,12 +7,15 @@
 #include <QDebug>
 
 EaDrawingArea::EaDrawingArea(QQuickItem *parent)
-    : QQuickPaintedItem(parent)
+    : QQuickPaintedItem(parent), m_session(EaSession::getInstance())
 {
     setAcceptedMouseButtons(Qt::AllButtons);
     setAcceptHoverEvents(true);
     setAntialiasing(true);  // 启用抗锯齿
     setRenderTarget(QQuickPaintedItem::FramebufferObject); // 性能优化
+    
+    // 连接EaSession的信号
+    connect(m_session, &EaSession::geometryChanged, this, &EaDrawingArea::onGeometryChanged);
 }
 
 // ============ 属性设置器 ============
@@ -57,32 +60,22 @@ void EaDrawingArea::setZoomLevel(double level)
 
 void EaDrawingArea::addPoint(double x, double y)
 {
-    GeometryPoint point;
-    point.pos = QPointF(x, y);
-    point.id = m_nextPointId++;
-    m_points.append(point);
-    update();
-    
-    qDebug() << "Added point" << point.id << "at" << point.pos;
+    int pointId = m_session->addPoint(x, y, 0.0);
+    qDebug() << "EaDrawingArea: Added point" << pointId << "at" << x << y;
 }
 
 void EaDrawingArea::addLine(int startId, int endId)
 {
-    GeometryLine line;
-    line.startPointId = startId;
-    line.endPointId = endId;
-    m_lines.append(line);
-    update();
-    
-    qDebug() << "Added line from point" << startId << "to" << endId;
+    int lineId = m_session->addLine(startId, endId);
+    if (lineId >= 0) {
+        qDebug() << "EaDrawingArea: Added line" << lineId << "from point" << startId << "to" << endId;
+    }
 }
 
 void EaDrawingArea::clear()
 {
-    m_points.clear();
-    m_lines.clear();
-    m_nextPointId = 1;
-    update();
+    m_session->clear();
+    qDebug() << "EaDrawingArea: Cleared all geometry";
 }
 
 QPointF EaDrawingArea::screenToWorld(double x, double y) const
@@ -103,13 +96,7 @@ QPointF EaDrawingArea::worldToScreen(double x, double y) const
 
 void EaDrawingArea::updatePointPosition(int id, double x, double y)
 {
-    for (auto &point : m_points) {
-        if (point.id == id) {
-            point.pos = QPointF(x, y);
-            update();
-            return;
-        }
-    }
+    m_session->updatePointPosition(id, x, y, 0.0);
 }
 
 // ============ 绘制方法 ============
@@ -182,15 +169,16 @@ void EaDrawingArea::drawPoints(QPainter *painter)
 {
     painter->save();
     
-    for (const auto &point : m_points) {
-        QPointF screenPos = worldToScreen(point.pos.x(), point.pos.y());
+    const auto& points = m_session->getPoints();
+    for (const auto& point : points) {
+        QPointF screenPos = worldToScreen(point->pos().x(), point->pos().y());
         
         // 选择颜色
-        QColor color = (point.selected || point.id == m_hoveredPointId) 
+        QColor color = (point->isSelected() || point->getId() == m_hoveredPointId) 
                        ? m_selectedPointColor : m_pointColor;
         
         // 如果是悬停点，绘制外圈
-        if (point.id == m_hoveredPointId) {
+        if (point->getId() == m_hoveredPointId) {
             QPen hoverPen(m_selectedPointColor, 2.0);
             painter->setPen(hoverPen);
             painter->setBrush(Qt::NoBrush);
@@ -200,7 +188,7 @@ void EaDrawingArea::drawPoints(QPainter *painter)
         // 绘制点
         painter->setPen(Qt::NoPen);
         painter->setBrush(color);
-        double radius = point.selected ? 8 : 6;
+        double radius = point->isSelected() ? 8 : 6;
         painter->drawEllipse(screenPos, radius, radius);
         
         // 绘制点ID标签
@@ -208,7 +196,7 @@ void EaDrawingArea::drawPoints(QPainter *painter)
         QFont font = painter->font();
         font.setPixelSize(10);
         painter->setFont(font);
-        painter->drawText(screenPos + QPointF(12, 4), QString("P%1").arg(point.id));
+        painter->drawText(screenPos + QPointF(12, 4), QString("P%1").arg(point->getId()));
     }
     
     painter->restore();
@@ -218,43 +206,26 @@ void EaDrawingArea::drawLines(QPainter *painter)
 {
     painter->save();
     
-    QPen linePen(m_lineColor, 2.0);
-    painter->setPen(linePen);
-    
-    for (const auto &line : m_lines) {
-        // 查找起点和终点
-        QPointF startPos, endPos;
-        bool foundStart = false, foundEnd = false;
+    const auto& lines = m_session->getLines();
+    for (const auto& line : lines) {
+        EaPoint* startPoint = line->getStartPoint();
+        EaPoint* endPoint = line->getEndPoint();
         
-        for (const auto &point : m_points) {
-            if (point.id == line.startPointId) {
-                startPos = worldToScreen(point.pos.x(), point.pos.y());
-                foundStart = true;
-            }
-            if (point.id == line.endPointId) {
-                endPos = worldToScreen(point.pos.x(), point.pos.y());
-                foundEnd = true;
-            }
-            if (foundStart && foundEnd) break;
+        if (!startPoint || !endPoint) continue;
+        
+        QPointF startPos = worldToScreen(startPoint->pos().x(), startPoint->pos().y());
+        QPointF endPos = worldToScreen(endPoint->pos().x(), endPoint->pos().y());
+        
+        // 设置线条样式
+        QPen linePen(m_lineColor, 2.0);
+        if (line->isSelected()) {
+            linePen.setWidth(3);
+            linePen.setColor(m_selectedPointColor);
         }
+        painter->setPen(linePen);
         
         // 绘制线段
-        if (foundStart && foundEnd) {
-            if (line.selected) {
-                linePen.setWidth(3);
-                linePen.setColor(m_selectedPointColor);
-                painter->setPen(linePen);
-            }
-            
-            painter->drawLine(startPos, endPos);
-            
-            // 重置样式
-            if (line.selected) {
-                linePen.setWidth(2);
-                linePen.setColor(m_lineColor);
-                painter->setPen(linePen);
-            }
-        }
+        painter->drawLine(startPos, endPos);
     }
     
     painter->restore();
@@ -274,13 +245,12 @@ void EaDrawingArea::mousePressEvent(QMouseEvent *event)
         if (pointId >= 0) {
             // 开始拖拽点
             m_draggedPointId = pointId;
-            for (auto &point : m_points) {
-                if (point.id == pointId) {
-                    point.isDragging = true;
-                    point.selected = true;
-                    emit pointClicked(pointId, point.pos.x(), point.pos.y());
-                    break;
-                }
+            EaPoint* point = m_session->getPoint(pointId);
+            if (point) {
+                point->setDragging(true);
+                point->setSelected(true);
+                m_session->selectPoint(pointId, true);
+                emit pointClicked(pointId, point->pos().x(), point->pos().y());
             }
             update();
         }
@@ -306,12 +276,10 @@ void EaDrawingArea::mouseMoveEvent(QMouseEvent *event)
             worldPos = snapToGridIfEnabled(worldPos);
         }
         
-        for (auto &point : m_points) {
-            if (point.id == m_draggedPointId) {
-                point.pos = worldPos;
-                emit pointDragged(m_draggedPointId, worldPos.x(), worldPos.y());
-                break;
-            }
+        EaPoint* point = m_session->getPoint(m_draggedPointId);
+        if (point) {
+            point->setPosition(worldPos.x(), worldPos.y(), 0.0);
+            emit pointDragged(m_draggedPointId, worldPos.x(), worldPos.y());
         }
         update();
     } else if (m_isPanning) {
@@ -327,12 +295,10 @@ void EaDrawingArea::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton && m_draggedPointId >= 0) {
         // 结束拖拽
-        for (auto &point : m_points) {
-            if (point.id == m_draggedPointId) {
-                point.isDragging = false;
-                emit pointReleased(m_draggedPointId, point.pos.x(), point.pos.y());
-                break;
-            }
+        EaPoint* point = m_session->getPoint(m_draggedPointId);
+        if (point) {
+            point->setDragging(false);
+            emit pointReleased(m_draggedPointId, point->pos().x(), point->pos().y());
         }
         m_draggedPointId = -1;
         update();
@@ -377,11 +343,12 @@ void EaDrawingArea::hoverMoveEvent(QHoverEvent *event)
 
 int EaDrawingArea::findPointAt(const QPointF &pos, double tolerance)
 {
-    for (const auto &point : m_points) {
-        QPointF screenPos = worldToScreen(point.pos.x(), point.pos.y());
+    const auto& points = m_session->getPoints();
+    for (const auto& point : points) {
+        QPointF screenPos = worldToScreen(point->pos().x(), point->pos().y());
         double distance = QLineF(screenPos, pos).length();
         if (distance <= tolerance) {
-            return point.id;
+            return point->getId();
         }
     }
     return -1;
@@ -401,5 +368,10 @@ QPointF EaDrawingArea::snapToGridIfEnabled(const QPointF &pos)
 void EaDrawingArea::updateTransform()
 {
     // 预留用于更复杂的变换
+    update();
+}
+
+void EaDrawingArea::onGeometryChanged()
+{
     update();
 }

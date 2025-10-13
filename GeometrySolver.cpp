@@ -162,3 +162,4 @@ QString GeometrySolver::getResultMessage(int result)
     }
 }
 
+

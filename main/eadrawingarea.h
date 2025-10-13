@@ -3,9 +3,9 @@
 
 #include <QQuickPaintedItem>
 #include <QPainter>
-#include <QVector>
 #include <QPointF>
 #include <QMouseEvent>
+#include "easession.h"
 
 /**
  * @brief 几何绘制区域 - 支持交互式几何元素绘制和编辑
@@ -27,21 +27,6 @@ public:
         Arc
     };
     Q_ENUM(ElementType)
-
-    // 几何点结构
-    struct GeometryPoint {
-        QPointF pos;
-        bool selected = false;
-        bool isDragging = false;
-        int id = -1;
-    };
-
-    // 几何线段结构
-    struct GeometryLine {
-        int startPointId;
-        int endPointId;
-        bool selected = false;
-    };
 
     explicit EaDrawingArea(QQuickItem *parent = nullptr);
 
@@ -88,6 +73,9 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
     void hoverMoveEvent(QHoverEvent *event) override;
 
+private slots:
+    void onGeometryChanged();
+
 private:
     // 绘制辅助方法
     void drawGrid(QPainter *painter);
@@ -100,9 +88,8 @@ private:
     QPointF snapToGridIfEnabled(const QPointF &pos);
     void updateTransform();
 
-    // 数据成员
-    QVector<GeometryPoint> m_points;
-    QVector<GeometryLine> m_lines;
+    // EaSession引用
+    EaSession* m_session;
     
     // 视图属性
     bool m_showGrid = true;
@@ -123,8 +110,6 @@ private:
     QColor m_pointColor = QColor(76, 175, 80);      // 绿色
     QColor m_selectedPointColor = QColor(244, 67, 54); // 红色
     QColor m_lineColor = QColor(33, 150, 243);      // 蓝色
-    
-    int m_nextPointId = 1;
 };
 
 #endif // EADRAWINGAREA_H
