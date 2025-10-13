@@ -1,5 +1,5 @@
 ﻿#include "easession.h"
-#include "GeometrySolver.h"
+#include "eageosolver.h"
 #include <QDebug>
 #include <algorithm>
 
@@ -329,37 +329,3 @@ void EaSession::setGeometrySolver(GeometrySolver* solver)
     qDebug() << "EaSession: GeometrySolver reference set";
 }
 
-void EaSession::testConstraints()
-{
-    qDebug() << "EaSession: Testing constraints...";
-    qDebug() << "EaSession: Number of points:" << m_points.size();
-    qDebug() << "EaSession: Number of constraints:" << m_constraints.size();
-    qDebug() << "EaSession: Next constraint ID:" << m_nextConstraintId;
-    
-    for (int i = 0; i < m_constraints.size(); ++i) {
-        QVariantMap constraint = m_constraints[i].toMap();
-        qDebug() << "EaSession: Constraint" << i << ":" << constraint;
-    }
-    
-    for (const auto& point : m_points) {
-        qDebug() << "EaSession: Point" << point->getId() << "at" 
-                 << point->pos().x() << point->pos().y() << point->pos().z();
-    }
-    
-    if (m_geometrySolver) {
-        qDebug() << "EaSession: GeometrySolver is available";
-    } else {
-        qDebug() << "EaSession: GeometrySolver is NOT available";
-    }
-    
-    // 测试手动添加约束
-    qDebug() << "EaSession: Testing manual constraint addition...";
-    addDistanceConstraint(1, 2, 100.0);
-    qDebug() << "EaSession: After manual addition, constraints:" << m_constraints.size();
-}
-
-bool EaSession::testDragConstraint(int pointId, double x, double y)
-{
-    qDebug() << "EaSession: Testing drag constraint for point" << pointId << "to" << x << y;
-    return solveDragConstraint(pointId, x, y);
-}

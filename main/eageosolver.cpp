@@ -1,4 +1,4 @@
-﻿#include "GeometrySolver.h"
+﻿#include "eageosolver.h"
 #include <QDebug>
 
 GeometrySolver::GeometrySolver(QObject *parent)

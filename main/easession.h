@@ -55,10 +55,6 @@ public:
     // 设置GeometrySolver引用
     void setGeometrySolver(GeometrySolver* solver);
     
-    // 测试方法
-    Q_INVOKABLE void testConstraints();
-    Q_INVOKABLE bool testDragConstraint(int pointId, double x, double y);
-
 public slots:
     // 几何元素管理
     int addPoint(double x, double y, double z = 0.0);

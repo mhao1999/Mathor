@@ -1,5 +1,5 @@
-#ifndef GEOMETRYSOLVER_H
-#define GEOMETRYSOLVER_H
+#ifndef EAGEOSOLVER_H
+#define EAGEOSOLVER_H
 
 #include <QObject>
 #include <QVariantMap>
@@ -56,6 +56,6 @@ private:
     double m_solvedX2, m_solvedY2;
 };
 
-#endif // GEOMETRYSOLVER_H
+#endif // EAGEOSOLVER_H
 
 

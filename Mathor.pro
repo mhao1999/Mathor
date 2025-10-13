@@ -13,16 +13,16 @@ INCLUDEPATH +=$$PWD/include
 LIBS += -L$$PWD/lib -lopenblas -llapack
 
 SOURCES += \
+        main/eageosolver.cpp \
         geometry/ealine.cpp \
         geometry/eapoint.cpp \
         geometry/eashape.cpp \
         main.cpp \
-        GeometrySolver.cpp \
         main/eadrawingarea.cpp \
         main/easession.cpp
 
 HEADERS += \
-        GeometrySolver.h \
+        main/eageosolver.h \
         geometry/ealine.h \
         geometry/eapoint.h \
         geometry/eashape.h \

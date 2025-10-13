@@ -2,7 +2,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QDebug>
-#include "GeometrySolver.h"
+#include "eageosolver.h"
 #include "main/eadrawingarea.h"
 #include "main/easession.h"
 
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("globalSolver", &solver);
     engine.rootContext()->setContextProperty("globalSession", session);
     
-    const QUrl url(QStringLiteral("qrc:/DrawingAreaDemo.qml"));
+    const QUrl url(QStringLiteral("qrc:/main.qml"));
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreated,
