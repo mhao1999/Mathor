@@ -29,7 +29,7 @@ public:
     Q_ENUM(ElementType)
 
     explicit EaDrawingArea(QQuickItem *parent = nullptr);
-
+    
     // 属性访问器
     bool showGrid() const { return m_showGrid; }
     void setShowGrid(bool show);

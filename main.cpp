@@ -53,6 +53,9 @@ int main(int argc, char *argv[])
     // 获取EaSession单例实例
     EaSession* session = EaSession::getInstance();
     
+    // 设置GeometrySolver引用到EaSession
+    session->setGeometrySolver(&solver);
+    
     // 将solver和session实例作为上下文属性暴露给QML
     engine.rootContext()->setContextProperty("globalSolver", &solver);
     engine.rootContext()->setContextProperty("globalSession", session);

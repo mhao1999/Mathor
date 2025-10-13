@@ -29,6 +29,11 @@ public:
                                             double x2, double y2, 
                                             double targetDistance);
 
+    // 拖拽约束求解 - 拖拽一个点，其他点根据约束调整
+    Q_INVOKABLE bool solveDragConstraint(int draggedPointId, double newX, double newY,
+                                        const QVariantMap& pointPositions,
+                                        const QVariantList& constraints);
+
     // 获取求解后的点坐标
     Q_INVOKABLE QVariantMap getSolvedPoints();
 

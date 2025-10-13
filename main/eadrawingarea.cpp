@@ -14,8 +14,17 @@ EaDrawingArea::EaDrawingArea(QQuickItem *parent)
     setAntialiasing(true);  // 启用抗锯齿
     setRenderTarget(QQuickPaintedItem::FramebufferObject); // 性能优化
     
+    // 重要：设置鼠标跟踪，这样即使没有按下鼠标按钮也能接收mouseMoveEvent
+    // setMouseTracking(true);
+    
+    // 确保能够接收鼠标事件
+    setFlag(QQuickItem::ItemAcceptsInputMethod, false);
+    setFlag(QQuickItem::ItemIsFocusScope, false);
+    
     // 连接EaSession的信号
     connect(m_session, &EaSession::geometryChanged, this, &EaDrawingArea::onGeometryChanged);
+    
+    qDebug() << "EaDrawingArea: Constructor completed, mouse tracking enabled";
 }
 
 // ============ 属性设置器 ============
@@ -235,6 +244,7 @@ void EaDrawingArea::drawLines(QPainter *painter)
 
 void EaDrawingArea::mousePressEvent(QMouseEvent *event)
 {
+    qDebug() << "EaDrawingArea: mousePressEvent at" << event->pos() << "button:" << event->button();
     m_lastMousePos = event->pos();
     
     if (event->button() == Qt::LeftButton) {
@@ -242,9 +252,12 @@ void EaDrawingArea::mousePressEvent(QMouseEvent *event)
         QPointF worldPos = screenToWorld(event->pos().x(), event->pos().y());
         int pointId = findPointAt(event->pos());
         
+        qDebug() << "EaDrawingArea: Left button pressed, worldPos:" << worldPos << "pointId:" << pointId;
+        
         if (pointId >= 0) {
             // 开始拖拽点
             m_draggedPointId = pointId;
+            qDebug() << "EaDrawingArea: Starting drag for point" << pointId;
             EaPoint* point = m_session->getPoint(pointId);
             if (point) {
                 point->setDragging(true);
@@ -258,13 +271,20 @@ void EaDrawingArea::mousePressEvent(QMouseEvent *event)
         // 中键或右键平移视图
         m_isPanning = true;
         setCursor(QCursor(Qt::ClosedHandCursor));
+        qDebug() << "EaDrawingArea: Starting panning";
     }
     
-    QQuickPaintedItem::mousePressEvent(event);
+    // QQuickPaintedItem::mousePressEvent(event);
 }
 
 void EaDrawingArea::mouseMoveEvent(QMouseEvent *event)
 {
+    // 简单的鼠标移动测试 - 每10次移动输出一次，避免日志过多
+    static int moveCount = 0;
+    if (++moveCount % 10 == 0) {
+        qDebug() << "EaDrawingArea: mouseMoveEvent at" << event->pos() << "draggedPointId:" << m_draggedPointId << "isPanning:" << m_isPanning;
+    }
+    
     QPointF delta = event->pos() - m_lastMousePos;
     m_lastMousePos = event->pos();
     
@@ -276,15 +296,21 @@ void EaDrawingArea::mouseMoveEvent(QMouseEvent *event)
             worldPos = snapToGridIfEnabled(worldPos);
         }
         
+        qDebug() << "EaDrawingArea: Dragging point" << m_draggedPointId << "to worldPos:" << worldPos;
+        
         EaPoint* point = m_session->getPoint(m_draggedPointId);
         if (point) {
-            point->setPosition(worldPos.x(), worldPos.y(), 0.0);
-            emit pointDragged(m_draggedPointId, worldPos.x(), worldPos.y());
+            // 使用约束感知的拖拽方法
+            bool success = point->onDragWithConstraints(worldPos.x(), worldPos.y(), m_session);
+            if (success) {
+                emit pointDragged(m_draggedPointId, worldPos.x(), worldPos.y());
+            }
         }
         update();
     } else if (m_isPanning) {
         // 平移视图
         m_panOffset += delta;
+        qDebug() << "EaDrawingArea: Panning, new offset:" << m_panOffset;
         update();
     }
     
@@ -293,8 +319,11 @@ void EaDrawingArea::mouseMoveEvent(QMouseEvent *event)
 
 void EaDrawingArea::mouseReleaseEvent(QMouseEvent *event)
 {
+    qDebug() << "EaDrawingArea: mouseReleaseEvent button:" << event->button() << "draggedPointId:" << m_draggedPointId;
+    
     if (event->button() == Qt::LeftButton && m_draggedPointId >= 0) {
         // 结束拖拽
+        qDebug() << "EaDrawingArea: Ending drag for point" << m_draggedPointId;
         EaPoint* point = m_session->getPoint(m_draggedPointId);
         if (point) {
             point->setDragging(false);
@@ -304,6 +333,7 @@ void EaDrawingArea::mouseReleaseEvent(QMouseEvent *event)
         update();
     } else if ((event->button() == Qt::MiddleButton || event->button() == Qt::RightButton) && m_isPanning) {
         // 结束平移
+        qDebug() << "EaDrawingArea: Ending panning";
         m_isPanning = false;
         setCursor(QCursor(Qt::ArrowCursor));
     }

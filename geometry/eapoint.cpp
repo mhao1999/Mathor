@@ -4,6 +4,7 @@
 #include <QBrush>
 #include <QFont>
 #include <QDebug>
+#include "../main/easession.h"
 
 EaPoint::EaPoint()
     : m_position(0.0, 0.0, 0.0)
@@ -19,6 +20,30 @@ bool EaPoint::onDrag(double x, double y)
 {
     setPosition(x, y, m_position.z());
     return true;
+}
+
+bool EaPoint::onDragWithConstraints(double x, double y, EaSession* session)
+{
+    qDebug() << "EaPoint: onDragWithConstraints called for point" << m_id << "to position" << x << y;
+    
+    if (!session) {
+        qDebug() << "EaPoint: No session available, using simple drag";
+        // 如果没有session，使用简单的拖拽
+        return onDrag(x, y);
+    }
+    
+    // 尝试使用约束求解
+    bool success = session->solveDragConstraint(m_id, x, y);
+    
+    if (success) {
+        // 约束求解成功，位置已经更新
+        qDebug() << "EaPoint: Drag with constraints successful for point" << m_id;
+        return true;
+    } else {
+        // 约束求解失败，使用简单拖拽
+        qDebug() << "EaPoint: Constraint solving failed, using simple drag for point" << m_id;
+        return onDrag(x, y);
+    }
 }
 
 void EaPoint::onDraw(QPainter* painter)

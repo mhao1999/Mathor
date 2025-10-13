@@ -11,6 +11,7 @@ public:
     EaPoint(double x, double y, double z = 0.0);
 
     bool onDrag(double x, double y) override;
+    bool onDragWithConstraints(double x, double y, class EaSession* session);
     void onDraw(QPainter* painter) override;
 
     // 位置访问器

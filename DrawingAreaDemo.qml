@@ -47,6 +47,7 @@ Window {
             
             DrawingArea {
                 id: drawingArea
+                focus: true
                 anchors.fill: parent
                 anchors.margins: 10
                 
@@ -230,6 +231,7 @@ Window {
                                 enabled: drawingArea !== null
                                 onClicked: {
                                     globalSession.addLine(1, 2)
+                                    globalSession.addDistanceConstraint(1, 2, 100.0)
                                 }
                             }
                             
@@ -245,6 +247,33 @@ Window {
                                 onClicked: {
                                     globalSession.clear()
                                     statusText.text = "已清空"
+                                }
+                            }
+                            
+                            Button {
+                                text: "测试约束"
+                                Layout.fillWidth: true
+                                onClicked: {
+                                    globalSession.testConstraints()
+                                }
+                            }
+                            
+                            Button {
+                                text: "手动添加约束"
+                                Layout.fillWidth: true
+                                onClicked: {
+                                    console.log("手动添加约束开始...")
+                                    globalSession.addDistanceConstraint(1, 2, 100.0)
+                                    console.log("手动添加约束完成")
+                                }
+                            }
+                            
+                            Button {
+                                text: "测试拖拽约束"
+                                Layout.fillWidth: true
+                                onClicked: {
+                                    var success = globalSession.testDragConstraint(2, 100, 100)
+                                    console.log("测试拖拽约束结果:", success)
                                 }
                             }
                         }
@@ -320,6 +349,7 @@ Window {
                                     globalSession.addPoint(10, 20)
                                     globalSession.addPoint(50, 60)
                                     globalSession.addLine(1, 2)
+                                    globalSession.addDistanceConstraint(1, 2, 100.0)
                                     
                                     // 求解
                                     solver.solveSimple2DDistance(10, 20, 50, 60, 100.0)
@@ -335,6 +365,7 @@ Window {
                                     globalSession.addPoint(50, 0)
                                     globalSession.addPoint(25, 40)
                                     globalSession.addLine(1, 2)
+                                    globalSession.addDistanceConstraint(1, 2, 100.0)
                                     globalSession.addLine(2, 3)
                                     globalSession.addLine(3, 1)
                                     statusText.text = "已创建三角形"
@@ -351,6 +382,7 @@ Window {
                                     globalSession.addPoint(60, 40)
                                     globalSession.addPoint(0, 40)
                                     globalSession.addLine(1, 2)
+                                    globalSession.addDistanceConstraint(1, 2, 100.0)
                                     globalSession.addLine(2, 3)
                                     globalSession.addLine(3, 4)
                                     globalSession.addLine(4, 1)
