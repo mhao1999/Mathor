@@ -73,6 +73,7 @@ public slots:
     int addPoint(double x, double y, double z = 0.0);
     int addLine(int startPointId, int endPointId);
     void addDistanceConstraint(int point1Id, int point2Id, double distance);
+    void createFixPointConstraint(int pointId);
     void clear();
     void createConstraint1();
     void createGongdianConstraint();

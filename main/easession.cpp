@@ -119,6 +119,10 @@ void EaSession::createConstraint1()
     int pt1 = this->addPoint(10.0, 20.0);
     int pt2 = this->addPoint(50.0, 60.0);
     this->addLine(pt1, pt2);
+    
+    // 添加固定点1的约束
+    this->createFixPointConstraint(pt1);
+    
     this->addDistanceConstraint(pt1, pt2, 100.0);
 }
 
@@ -257,6 +261,19 @@ void EaSession::addDistanceConstraint(int point1Id, int point2Id, double distanc
              << "between points" << point1Id << "and" << point2Id 
              << "with distance" << distance;
     qDebug() << "EaSession: Total constraints after adding:" << m_constraints.size();
+}
+
+void EaSession::createFixPointConstraint(int pointId)
+{
+    // 添加固定点的约束
+    Constraint fixConstraint(m_nextConstraintId++, "fix_point");
+    fixConstraint.data["point"] = pointId;
+    fixConstraint.data["type"] = "SLVS_C_WHERE_DRAGGED";
+    
+    m_constraints.push_back(fixConstraint);
+    
+    qDebug() << "EaSession: Added fix point constraint" << fixConstraint.id 
+             << "for point" << pointId;
 }
 
 void EaSession::removeConstraint(int constraintId)

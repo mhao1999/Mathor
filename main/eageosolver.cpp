@@ -244,26 +244,25 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
                 qWarning() << "GeometrySolver: Cannot add distance constraint - missing entities";
             }
         }
-    }
-    
-    // 添加点1的固定约束，确保点1不会移动
-    if (pointToEntity.find(1) != pointToEntity.end()) {
-        // 获取点1的初始坐标
-        const auto& point1Pos = pointPositions.at("1");
-        double x1 = std::any_cast<double>(point1Pos.at("x"));
-        double y1 = std::any_cast<double>(point1Pos.at("y"));
-        
-        // 添加点1的固定约束 - 使用拖拽约束
-        int constraintId = m_sys.constraints + 1;
-        m_sys.constraint[m_sys.constraints++] = Slvs_MakeConstraint(
-            constraintId, g,
-            SLVS_C_WHERE_DRAGGED,
-            200,
-            0.0,
-            pointToEntity[1], 0, 0, 0);
-        
-        qDebug() << "GeometrySolver: Added point1 fixed constraint" << constraintId
-                 << "for entity" << pointToEntity[1] << "at position" << x1 << y1;
+        else if (type == "fix_point") {
+            int pointId = std::any_cast<int>(constraint.data.at("point"));
+            
+            if (pointToEntity.find(pointId) != pointToEntity.end()) {
+                // 添加固定点约束 - 使用拖拽约束
+                int constraintId = m_sys.constraints + 1;
+                m_sys.constraint[m_sys.constraints++] = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_WHERE_DRAGGED,
+                    200,
+                    0.0,
+                    pointToEntity[pointId], 0, 0, 0);
+                
+                qDebug() << "GeometrySolver: Added fix point constraint" << constraintId
+                         << "for point" << pointId << "entity" << pointToEntity[pointId];
+            } else {
+                qWarning() << "GeometrySolver: Cannot add fix point constraint - point" << pointId << "not found";
+            }
+        }
     }
     
     qDebug() << "GeometrySolver: Total constraints added:" << m_sys.constraints;
