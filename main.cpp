@@ -2,7 +2,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QDebug>
-#include "eageosolver.h"
+#include "main/eageosolver.h"
 #include "main/eadrawingarea.h"
 #include "main/easession.h"
 

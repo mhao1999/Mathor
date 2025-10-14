@@ -301,7 +301,7 @@ void EaDrawingArea::mouseMoveEvent(QMouseEvent *event)
         EaPoint* point = m_session->getPoint(m_draggedPointId);
         if (point) {
             // 使用约束感知的拖拽方法
-            bool success = point->onDragWithConstraints(worldPos.x(), worldPos.y(), m_session);
+            bool success = point->onDragWithConstraints(worldPos.x(), worldPos.y());
             if (success) {
                 emit pointDragged(m_draggedPointId, worldPos.x(), worldPos.y());
             }

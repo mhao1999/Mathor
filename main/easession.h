@@ -27,7 +27,7 @@ public:
     // 几何元素管理
     void removePoint(int pointId);
     void removeLine(int lineId);
-    void clear();
+
     
     // 获取几何元素
     EaPoint* getPoint(int pointId);
@@ -60,6 +60,9 @@ public slots:
     int addPoint(double x, double y, double z = 0.0);
     int addLine(int startPointId, int endPointId);
     void addDistanceConstraint(int point1Id, int point2Id, double distance);
+    void clear();
+    void createConstraint1();
+    void createGongdianConstraint();
     // 更新几何元素
     void updatePointPosition(int pointId, double x, double y, double z = 0.0);
 
@@ -79,7 +82,7 @@ private:
     QVector<std::shared_ptr<EaPoint>> m_points;
     QVector<std::shared_ptr<EaLine>> m_lines;
     
-    // 约束存储
+    // 约束存储,
     QVariantList m_constraints;
     
     // ID管理

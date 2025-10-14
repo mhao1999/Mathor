@@ -22,16 +22,11 @@ bool EaPoint::onDrag(double x, double y)
     return true;
 }
 
-bool EaPoint::onDragWithConstraints(double x, double y, EaSession* session)
+bool EaPoint::onDragWithConstraints(double x, double y)
 {
     qDebug() << "EaPoint: onDragWithConstraints called for point" << m_id << "to position" << x << y;
-    
-    if (!session) {
-        qDebug() << "EaPoint: No session available, using simple drag";
-        // 如果没有session，使用简单的拖拽
-        return onDrag(x, y);
-    }
-    
+    EaSession* session = EaSession::getInstance();
+
     // 尝试使用约束求解
     bool success = session->solveDragConstraint(m_id, x, y);
     

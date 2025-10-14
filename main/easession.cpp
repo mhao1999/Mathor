@@ -112,6 +112,20 @@ void EaSession::clear()
     qDebug() << "EaSession: Cleared all geometry";
 }
 
+void EaSession::createConstraint1()
+{
+    this->clear();
+    int pt1 = this->addPoint(10.0, 20.0);
+    int pt2 = this->addPoint(50.0, 60.0);
+    this->addLine(pt1, pt2);
+    this->addDistanceConstraint(pt1, pt2, 100.0);
+}
+
+void EaSession::createGongdianConstraint()
+{
+
+}
+
 // ============ 获取几何元素 ============
 
 EaPoint* EaSession::getPoint(int pointId)

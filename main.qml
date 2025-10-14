@@ -210,18 +210,18 @@ Window {
                             spacing: 8
                             
                             Button {
-                                text: "添加点 (10, 20)"
+                                text: "固定点和距离约束"
                                 Layout.fillWidth: true
                                 onClicked: {
-                                    globalSession.addPoint(10, 20)
+                                    globalSession.createConstraint1()
                                 }
                             }
                             
                             Button {
-                                text: "添加点 (50, 60)"
+                                text: "共点约束"
                                 Layout.fillWidth: true
                                 onClicked: {
-                                    globalSession.addPoint(50, 60)
+                                    globalSession.createGongdianConstraint()
                                 }
                             }
                             
@@ -261,23 +261,23 @@ Window {
                             anchors.fill: parent
                             spacing: 8
                             
-                            Text {
-                                text: "确保已添加点 1 和点 2"
-                                font.pixelSize: 11
-                                color: "#666"
-                                wrapMode: Text.WordWrap
-                                Layout.fillWidth: true
-                            }
+                            // Text {
+                            //     text: "确保已添加点 1 和点 2"
+                            //     font.pixelSize: 11
+                            //     color: "#666"
+                            //     wrapMode: Text.WordWrap
+                            //     Layout.fillWidth: true
+                            // }
                             
-                            RowLayout {
-                                Label { text: "目标距离:" }
-                                TextField {
-                                    id: targetDistanceField
-                                    text: "100.0"
-                                    validator: DoubleValidator {}
-                                    Layout.fillWidth: true
-                                }
-                            }
+                            // RowLayout {
+                            //     Label { text: "目标距离:" }
+                            //     TextField {
+                            //         id: targetDistanceField
+                            //         text: "100.0"
+                            //         validator: DoubleValidator {}
+                            //         Layout.fillWidth: true
+                            //     }
+                            // }
                             
                             Button {
                                 text: "应用距离约束"
@@ -290,7 +290,8 @@ Window {
                                     solver.solveSimple2DDistance(
                                         10, 20,  // 点1初始坐标
                                         50, 60,  // 点2初始坐标
-                                        parseFloat(targetDistanceField.text)
+                                        100.0
+                                        //parseFloat(targetDistanceField.text)
                                     )
                                 }
                             }
