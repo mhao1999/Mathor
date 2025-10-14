@@ -43,6 +43,7 @@ public:
 
     // 获取求解后的点坐标
     Q_INVOKABLE QVariantMap getSolvedPoints();
+    Q_INVOKABLE QVariantMap getSolvedPoints(const std::map<std::string, std::map<std::string, std::any>>& pointPositions);
 
 signals:
     void dofChanged();
@@ -61,6 +62,10 @@ private:
     // 用于存储求解后的结果
     double m_solvedX1, m_solvedY1;
     double m_solvedX2, m_solvedY2;
+    
+    // 用于存储参数映射，支持动态数量的点
+    std::map<int, int> m_pointToParamX; // 点ID到X参数索引的映射
+    std::map<int, int> m_pointToParamY; // 点ID到Y参数索引的映射
 };
 
 #endif // EAGEOSOLVER_H

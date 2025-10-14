@@ -173,8 +173,9 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     
     // 创建所有点，并记录参数索引
     std::map<int, int> pointToEntity; // 点ID到实体ID的映射
-    std::map<int, int> pointToParamX; // 点ID到X参数索引的映射
-    std::map<int, int> pointToParamY; // 点ID到Y参数索引的映射
+    // 清空之前的映射
+    m_pointToParamX.clear();
+    m_pointToParamY.clear();
     
     int paramIndex = 10;
     int entityIndex = 300;
@@ -198,9 +199,9 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
         int paramYIndex = paramIndex++;
         m_sys.param[m_sys.params++] = Slvs_MakeParam(paramYIndex, g, y);
         
-        // 记录参数索引
-        pointToParamX[pointId] = paramXIndex;
-        pointToParamY[pointId] = paramYIndex;
+        // 记录参数索引到成员变量
+        m_pointToParamX[pointId] = paramXIndex;
+        m_pointToParamY[pointId] = paramYIndex;
         
         // 创建点实体
         m_sys.entity[m_sys.entities++] = Slvs_MakePoint2d(entityIndex, g, 200, paramXIndex, paramYIndex);
@@ -273,26 +274,26 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
         m_sys.dragged[i] = 0;
     }
     
-    // 使用dragged数组来指定被拖拽的参数（点2）
+    // 使用dragged数组来指定被拖拽的参数
     // dragged数组中的参数是会被拖拽的参数，不是被固定的参数
-    if (pointToParamX.find(draggedPointId) != pointToParamX.end() && pointToParamY.find(draggedPointId) != pointToParamY.end()) {
-        m_sys.dragged[0] = pointToParamX[draggedPointId];  // 拖拽点2的X参数
-        m_sys.dragged[1] = pointToParamY[draggedPointId];  // 拖拽点2的Y参数
+    if (m_pointToParamX.find(draggedPointId) != m_pointToParamX.end() && m_pointToParamY.find(draggedPointId) != m_pointToParamY.end()) {
+        m_sys.dragged[0] = m_pointToParamX[draggedPointId];  // 拖拽点的X参数
+        m_sys.dragged[1] = m_pointToParamY[draggedPointId];  // 拖拽点的Y参数
         m_sys.dragged[2] = 0;  // 未使用
         m_sys.dragged[3] = 0;  // 未使用
         
         qDebug() << "GeometrySolver: Dragged point" << draggedPointId << "parameters:" 
-                 << pointToParamX[draggedPointId] << pointToParamY[draggedPointId];
+                 << m_pointToParamX[draggedPointId] << m_pointToParamY[draggedPointId];
     }
     
     qDebug() << "GeometrySolver: Using dragged array to specify dragged parameters";
     qDebug() << "GeometrySolver: Point1 should be fixed, point2 should move";
     
     // 输出每个点的参数ID
-    for (auto it = pointToParamX.begin(); it != pointToParamX.end(); ++it) {
+    for (auto it = m_pointToParamX.begin(); it != m_pointToParamX.end(); ++it) {
         int pointId = it->first;
         qDebug() << "GeometrySolver: Point" << pointId << "X param:" << it->second 
-                 << "Y param:" << pointToParamY[pointId];
+                 << "Y param:" << m_pointToParamY[pointId];
     }
     
     // 启用失败约束计算
@@ -311,7 +312,7 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
         for (int i = 0; i < m_sys.params; i++) {
             if (m_sys.param[i].group == g) {
                 // 查找这个参数对应的点ID
-                for (auto it = pointToParamX.begin(); it != pointToParamX.end(); ++it) {
+                for (auto it = m_pointToParamX.begin(); it != m_pointToParamX.end(); ++it) {
                     int pointId = it->first;
                     if (it->second == m_sys.param[i].h) {
                         // 这是点ID的X坐标
@@ -323,7 +324,7 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
                         break;
                     }
                 }
-                for (auto it = pointToParamY.begin(); it != pointToParamY.end(); ++it) {
+                for (auto it = m_pointToParamY.begin(); it != m_pointToParamY.end(); ++it) {
                     int pointId = it->first;
                     if (it->second == m_sys.param[i].h) {
                         // 这是点ID的Y坐标
@@ -371,6 +372,36 @@ QVariantMap GeometrySolver::getSolvedPoints()
     result["y1"] = m_solvedY1;
     result["x2"] = m_solvedX2;
     result["y2"] = m_solvedY2;
+    return result;
+}
+
+QVariantMap GeometrySolver::getSolvedPoints(const std::map<std::string, std::map<std::string, std::any>>& pointPositions)
+{
+    QVariantMap result;
+    
+    // 使用保存的参数映射来获取所有点的求解结果
+    for (const auto& pointIt : pointPositions) {
+        std::string pointIdStr = pointIt.first;
+        int pointId = std::stoi(pointIdStr);
+        
+        // 查找该点的X和Y参数
+        if (m_pointToParamX.find(pointId) != m_pointToParamX.end() && 
+            m_pointToParamY.find(pointId) != m_pointToParamY.end()) {
+            
+            int paramXIndex = m_pointToParamX[pointId];
+            int paramYIndex = m_pointToParamY[pointId];
+            
+            // 从参数数组中获取求解后的坐标
+            for (int i = 0; i < m_sys.params; i++) {
+                if (m_sys.param[i].h == paramXIndex) {
+                    result[QString("x%1").arg(pointId)] = m_sys.param[i].val;
+                } else if (m_sys.param[i].h == paramYIndex) {
+                    result[QString("y%1").arg(pointId)] = m_sys.param[i].val;
+                }
+            }
+        }
+    }
+    
     return result;
 }
 

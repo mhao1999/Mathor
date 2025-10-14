@@ -128,7 +128,26 @@ void EaSession::createConstraint1()
 
 void EaSession::createGongdianConstraint()
 {
-
+    this->clear();
+    
+    // 添加四个点
+    int pt1 = this->addPoint(-100.0, -120.0);
+    int pt2 = this->addPoint(150.0, -120.0);
+    int pt3 = this->addPoint(30.0, 150.0);
+    int pt4 = this->addPoint(30.0, 30.0);  // 共点，可以自由移动
+    
+    // 添加三条线段：(点1，点4)，(点2，点4)，(点3，点4)
+    this->addLine(pt1, pt4);
+    this->addLine(pt2, pt4);
+    this->addLine(pt3, pt4);
+    
+    // 为点1、点2、点3添加固定约束
+    this->createFixPointConstraint(pt1);
+    this->createFixPointConstraint(pt2);
+    this->createFixPointConstraint(pt3);
+    
+    qDebug() << "EaSession: Created gongdian constraint with points" << pt1 << pt2 << pt3 << pt4;
+    qDebug() << "EaSession: Points" << pt1 << pt2 << pt3 << "are fixed, point" << pt4 << "can move freely";
 }
 
 // ============ 获取几何元素 ============
@@ -332,17 +351,24 @@ bool EaSession::solveDragConstraint(int draggedPointId, double newX, double newY
                                                         pointPositions, m_constraints);
     
     if (success) {
-        // 更新点的位置
-        QVariantMap solvedPoints = m_geometrySolver->getSolvedPoints();
+        // 更新点的位置 - 使用动态方法处理所有点
+        QVariantMap solvedPoints = m_geometrySolver->getSolvedPoints(pointPositions);
         
         // 更新所有点的位置
         for (const auto& point : m_points) {
             int pointId = point->getId();
-            if (pointId == 1) {
-                point->setPosition(solvedPoints["x1"].toDouble(), solvedPoints["y1"].toDouble(), 0.0);
-            } else if (pointId == 2) {
-                qDebug() << "new pt " << solvedPoints["x2"].toDouble() << " " << solvedPoints["y2"].toDouble();
-                point->setPosition(solvedPoints["x2"].toDouble(), solvedPoints["y2"].toDouble(), 0.0);
+            QString xKey = QString("x%1").arg(pointId);
+            QString yKey = QString("y%1").arg(pointId);
+            
+            if (solvedPoints.contains(xKey) && solvedPoints.contains(yKey)) {
+                double newX = solvedPoints[xKey].toDouble();
+                double newY = solvedPoints[yKey].toDouble();
+                
+                point->setPosition(newX, newY, 0.0);
+                
+                qDebug() << "EaSession: Updated point" << pointId << "to position" << newX << newY;
+            } else {
+                qWarning() << "EaSession: No solved position found for point" << pointId;
             }
         }
         
