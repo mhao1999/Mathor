@@ -3,7 +3,14 @@
 
 #include <QObject>
 #include <QVariantMap>
+#include <map>
+#include <string>
+#include <any>
+#include <vector>
 #include <slvs.h>
+
+// 前向声明
+struct Constraint;
 
 /**
  * @brief GeometrySolver类 - SolveSpaceLib的Qt封装
@@ -31,8 +38,8 @@ public:
 
     // 拖拽约束求解 - 拖拽一个点，其他点根据约束调整
     Q_INVOKABLE bool solveDragConstraint(int draggedPointId, double newX, double newY,
-                                        const QVariantMap& pointPositions,
-                                        const QVariantList& constraints);
+                                        const std::map<std::string, std::map<std::string, std::any>>& pointPositions,
+                                        const std::vector<Constraint>& constraints);
 
     // 获取求解后的点坐标
     Q_INVOKABLE QVariantMap getSolvedPoints();

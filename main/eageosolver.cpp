@@ -1,4 +1,5 @@
 ﻿#include "eageosolver.h"
+#include "easession.h"
 #include <QDebug>
 
 GeometrySolver::GeometrySolver(QObject *parent)
@@ -137,8 +138,8 @@ bool GeometrySolver::solveSimple2DDistance(double x1, double y1,
 }
 
 bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double newY,
-                                        const QVariantMap& pointPositions,
-                                        const QVariantList& constraints)
+                                        const std::map<std::string, std::map<std::string, std::any>>& pointPositions,
+                                        const std::vector<Constraint>& constraints)
 {
     qDebug() << "GeometrySolver: solveDragConstraint called for point" << draggedPointId 
              << "to position" << newX << newY;
@@ -171,18 +172,18 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     g = 2;
     
     // 创建所有点，并记录参数索引
-    QMap<int, int> pointToEntity; // 点ID到实体ID的映射
-    QMap<int, int> pointToParamX; // 点ID到X参数索引的映射
-    QMap<int, int> pointToParamY; // 点ID到Y参数索引的映射
+    std::map<int, int> pointToEntity; // 点ID到实体ID的映射
+    std::map<int, int> pointToParamX; // 点ID到X参数索引的映射
+    std::map<int, int> pointToParamY; // 点ID到Y参数索引的映射
     
     int paramIndex = 10;
     int entityIndex = 300;
     
-    for (auto it = pointPositions.begin(); it != pointPositions.end(); ++it) {
-        int pointId = it.key().toInt();
-        QVariantMap pos = it.value().toMap();
-        double x = pos["x"].toDouble();
-        double y = pos["y"].toDouble();
+    for (const auto& it : pointPositions) {
+        int pointId = std::stoi(it.first);
+        const auto& pos = it.second;
+        double x = std::any_cast<double>(pos.at("x"));
+        double y = std::any_cast<double>(pos.at("y"));
         
         // 如果是被拖拽的点，使用新位置
         if (pointId == draggedPointId) {
@@ -211,23 +212,22 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     
     // 添加约束
     qDebug() << "GeometrySolver: Adding constraints, total constraints to add:" << constraints.size();
-    for (const QVariant& constraintVar : constraints) {
-        QVariantMap constraint = constraintVar.toMap();
-        QString type = constraint["type"].toString();
+    for (const Constraint& constraint : constraints) {
+        std::string type = constraint.type;
         
-        qDebug() << "GeometrySolver: Processing constraint type:" << type << "constraint:" << constraint;
+        qDebug() << "GeometrySolver: Processing constraint type:" << type.c_str() << "constraint id:" << constraint.id;
         
         if (type == "distance") {
-            int point1Id = constraint["point1"].toInt();
-            int point2Id = constraint["point2"].toInt();
-            double distance = constraint["distance"].toDouble();
+            int point1Id = std::any_cast<int>(constraint.data.at("point1"));
+            int point2Id = std::any_cast<int>(constraint.data.at("point2"));
+            double distance = std::any_cast<double>(constraint.data.at("distance"));
             
             qDebug() << "GeometrySolver: Distance constraint - point1Id:" << point1Id 
                      << "point2Id:" << point2Id << "distance:" << distance;
-            qDebug() << "GeometrySolver: pointToEntity contains point1Id:" << pointToEntity.contains(point1Id)
-                     << "point2Id:" << pointToEntity.contains(point2Id);
+            qDebug() << "GeometrySolver: pointToEntity contains point1Id:" << (pointToEntity.find(point1Id) != pointToEntity.end())
+                     << "point2Id:" << (pointToEntity.find(point2Id) != pointToEntity.end());
             
-            if (pointToEntity.contains(point1Id) && pointToEntity.contains(point2Id)) {
+            if (pointToEntity.find(point1Id) != pointToEntity.end() && pointToEntity.find(point2Id) != pointToEntity.end()) {
                 int constraintId = m_sys.constraints + 1;
                 m_sys.constraint[m_sys.constraints++] = Slvs_MakeConstraint(
                     constraintId, g,
@@ -247,11 +247,11 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     }
     
     // 添加点1的固定约束，确保点1不会移动
-    if (pointToEntity.contains(1)) {
+    if (pointToEntity.find(1) != pointToEntity.end()) {
         // 获取点1的初始坐标
-        QVariantMap point1Pos = pointPositions["1"].toMap();
-        double x1 = point1Pos["x"].toDouble();
-        double y1 = point1Pos["y"].toDouble();
+        const auto& point1Pos = pointPositions.at("1");
+        double x1 = std::any_cast<double>(point1Pos.at("x"));
+        double y1 = std::any_cast<double>(point1Pos.at("y"));
         
         // 添加点1的固定约束 - 使用拖拽约束
         int constraintId = m_sys.constraints + 1;
@@ -276,7 +276,7 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     
     // 使用dragged数组来指定被拖拽的参数（点2）
     // dragged数组中的参数是会被拖拽的参数，不是被固定的参数
-    if (pointToParamX.contains(draggedPointId) && pointToParamY.contains(draggedPointId)) {
+    if (pointToParamX.find(draggedPointId) != pointToParamX.end() && pointToParamY.find(draggedPointId) != pointToParamY.end()) {
         m_sys.dragged[0] = pointToParamX[draggedPointId];  // 拖拽点2的X参数
         m_sys.dragged[1] = pointToParamY[draggedPointId];  // 拖拽点2的Y参数
         m_sys.dragged[2] = 0;  // 未使用
@@ -291,8 +291,8 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     
     // 输出每个点的参数ID
     for (auto it = pointToParamX.begin(); it != pointToParamX.end(); ++it) {
-        int pointId = it.key();
-        qDebug() << "GeometrySolver: Point" << pointId << "X param:" << it.value() 
+        int pointId = it->first;
+        qDebug() << "GeometrySolver: Point" << pointId << "X param:" << it->second 
                  << "Y param:" << pointToParamY[pointId];
     }
     
@@ -313,8 +313,8 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
             if (m_sys.param[i].group == g) {
                 // 查找这个参数对应的点ID
                 for (auto it = pointToParamX.begin(); it != pointToParamX.end(); ++it) {
-                    int pointId = it.key();
-                    if (it.value() == m_sys.param[i].h) {
+                    int pointId = it->first;
+                    if (it->second == m_sys.param[i].h) {
                         // 这是点ID的X坐标
                         if (pointId == 1) {
                             m_solvedX1 = m_sys.param[i].val;
@@ -325,8 +325,8 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
                     }
                 }
                 for (auto it = pointToParamY.begin(); it != pointToParamY.end(); ++it) {
-                    int pointId = it.key();
-                    if (it.value() == m_sys.param[i].h) {
+                    int pointId = it->first;
+                    if (it->second == m_sys.param[i].h) {
                         // 这是点ID的Y坐标
                         if (pointId == 1) {
                             m_solvedY1 = m_sys.param[i].val;

@@ -1,6 +1,7 @@
 ﻿#include "easession.h"
 #include "eageosolver.h"
 #include <QDebug>
+#include <QVariantMap>
 #include <algorithm>
 
 EaSession *EaSession::instance = nullptr;
@@ -22,7 +23,7 @@ int EaSession::addPoint(double x, double y, double z)
     point->setPosition(x, y, z);
     point->setId(m_nextPointId);
     
-    m_points.append(point);
+    m_points.push_back(point);
     int pointId = m_nextPointId++;
     
     emit pointAdded(pointId, x, y, z);
@@ -48,7 +49,7 @@ int EaSession::addLine(int startPointId, int endPointId)
     line->setEndPoint(endPoint);
     line->setId(m_nextLineId);
     
-    m_lines.append(line);
+    m_lines.push_back(line);
     int lineId = m_nextLineId++;
     
     emit lineAdded(lineId, startPointId, endPointId);
@@ -166,12 +167,15 @@ void EaSession::updatePointPosition(int pointId, double x, double y, double z)
 void EaSession::selectPoint(int pointId, bool selected)
 {
     if (selected) {
-        if (!m_selectedPoints.contains(pointId)) {
-            m_selectedPoints.append(pointId);
+        auto it = std::find(m_selectedPoints.begin(), m_selectedPoints.end(), pointId);
+        if (it == m_selectedPoints.end()) {
+            m_selectedPoints.push_back(pointId);
             emit selectionChanged();
         }
     } else {
-        if (m_selectedPoints.removeOne(pointId)) {
+        auto it = std::find(m_selectedPoints.begin(), m_selectedPoints.end(), pointId);
+        if (it != m_selectedPoints.end()) {
+            m_selectedPoints.erase(it);
             emit selectionChanged();
         }
     }
@@ -180,12 +184,15 @@ void EaSession::selectPoint(int pointId, bool selected)
 void EaSession::selectLine(int lineId, bool selected)
 {
     if (selected) {
-        if (!m_selectedLines.contains(lineId)) {
-            m_selectedLines.append(lineId);
+        auto it = std::find(m_selectedLines.begin(), m_selectedLines.end(), lineId);
+        if (it == m_selectedLines.end()) {
+            m_selectedLines.push_back(lineId);
             emit selectionChanged();
         }
     } else {
-        if (m_selectedLines.removeOne(lineId)) {
+        auto it = std::find(m_selectedLines.begin(), m_selectedLines.end(), lineId);
+        if (it != m_selectedLines.end()) {
+            m_selectedLines.erase(it);
             emit selectionChanged();
         }
     }
@@ -193,19 +200,19 @@ void EaSession::selectLine(int lineId, bool selected)
 
 void EaSession::clearSelection()
 {
-    if (!m_selectedPoints.isEmpty() || !m_selectedLines.isEmpty()) {
+    if (!m_selectedPoints.empty() || !m_selectedLines.empty()) {
         m_selectedPoints.clear();
         m_selectedLines.clear();
         emit selectionChanged();
     }
 }
 
-QVector<int> EaSession::getSelectedPoints() const
+std::vector<int> EaSession::getSelectedPoints() const
 {
     return m_selectedPoints;
 }
 
-QVector<int> EaSession::getSelectedLines() const
+std::vector<int> EaSession::getSelectedLines() const
 {
     return m_selectedLines;
 }
@@ -239,31 +246,28 @@ void EaSession::addDistanceConstraint(int point1Id, int point2Id, double distanc
         return;
     }
     
-    QVariantMap constraint;
-    constraint["id"] = m_nextConstraintId++;
-    constraint["type"] = "distance";
-    constraint["point1"] = point1Id;
-    constraint["point2"] = point2Id;
-    constraint["distance"] = distance;
+    Constraint constraint(m_nextConstraintId++, "distance");
+    constraint.data["point1"] = point1Id;
+    constraint.data["point2"] = point2Id;
+    constraint.data["distance"] = distance;
     
-    m_constraints.append(constraint);
+    m_constraints.push_back(constraint);
     
-    qDebug() << "EaSession: Added distance constraint" << constraint["id"] 
+    qDebug() << "EaSession: Added distance constraint" << constraint.id 
              << "between points" << point1Id << "and" << point2Id 
              << "with distance" << distance;
     qDebug() << "EaSession: Total constraints after adding:" << m_constraints.size();
-    qDebug() << "EaSession: Constraint details:" << constraint;
 }
 
 void EaSession::removeConstraint(int constraintId)
 {
-    for (int i = 0; i < m_constraints.size(); ++i) {
-        QVariantMap constraint = m_constraints[i].toMap();
-        if (constraint["id"].toInt() == constraintId) {
-            m_constraints.removeAt(i);
-            qDebug() << "EaSession: Removed constraint" << constraintId;
-            return;
-        }
+    auto it = std::find_if(m_constraints.begin(), m_constraints.end(),
+                          [constraintId](const Constraint& constraint) {
+                              return constraint.id == constraintId;
+                          });
+    if (it != m_constraints.end()) {
+        m_constraints.erase(it);
+        qDebug() << "EaSession: Removed constraint" << constraintId;
     }
 }
 
@@ -274,7 +278,7 @@ void EaSession::clearConstraints()
     qDebug() << "EaSession: Cleared all constraints";
 }
 
-QVariantList EaSession::getConstraints() const
+std::vector<Constraint> EaSession::getConstraints() const
 {
     return m_constraints;
 }
@@ -290,22 +294,20 @@ bool EaSession::solveDragConstraint(int draggedPointId, double newX, double newY
     }
     
     qDebug() << "EaSession: Number of constraints:" << m_constraints.size();
-    for (int i = 0; i < m_constraints.size(); ++i) {
-        QVariantMap constraint = m_constraints[i].toMap();
-        qDebug() << "EaSession: Constraint" << i << ":" << constraint;
+    for (size_t i = 0; i < m_constraints.size(); ++i) {
+        const Constraint& constraint = m_constraints[i];
+        qDebug() << "EaSession: Constraint" << i << ":" << constraint.id << constraint.type.c_str();
     }
     
-    qDebug() << "EaSession: Constraints being passed to GeometrySolver:" << m_constraints;
-    
     // 构建点位置映射
-    QVariantMap pointPositions;
+    std::map<std::string, std::map<std::string, std::any>> pointPositions;
     for (const auto& point : m_points) {
-        QVariantMap pos;
+        std::map<std::string, std::any> pos;
         pos["x"] = point->pos().x();
         pos["y"] = point->pos().y();
         pos["z"] = point->pos().z();
-        pointPositions[QString::number(point->getId())] = pos;
-        qDebug() << "EaSession: Point" << point->getId() << "at" << pos;
+        pointPositions[std::to_string(point->getId())] = pos;
+        qDebug() << "EaSession: Point" << point->getId() << "at" << point->pos().x() << point->pos().y() << point->pos().z();
     }
     
     // 调用GeometrySolver进行求解
@@ -322,8 +324,7 @@ bool EaSession::solveDragConstraint(int draggedPointId, double newX, double newY
             if (pointId == 1) {
                 point->setPosition(solvedPoints["x1"].toDouble(), solvedPoints["y1"].toDouble(), 0.0);
             } else if (pointId == 2) {
-                qDebug() << "new pt " << solvedPoints["x2"].toDouble() << " " <<
-                    solvedPoints["y2"].toDouble();
+                qDebug() << "new pt " << solvedPoints["x2"].toDouble() << " " << solvedPoints["y2"].toDouble();
                 point->setPosition(solvedPoints["x2"].toDouble(), solvedPoints["y2"].toDouble(), 0.0);
             }
         }

@@ -2,11 +2,24 @@
 #define EASESSION_H
 
 #include <QObject>
-#include <QVector>
+#include <vector>
 #include <memory>
+#include <map>
+#include <string>
+#include <any>
 // #include "../geometry/eashape.h"
 #include "../geometry/eapoint.h"
 #include "../geometry/ealine.h"
+
+// 约束结构体，替代QVariantMap
+struct Constraint {
+    int id;
+    std::string type;
+    std::map<std::string, std::any> data;
+    
+    Constraint() : id(0) {}
+    Constraint(int id, const std::string& type) : id(id), type(type) {}
+};
 
 class GeometrySolver;
 
@@ -32,22 +45,22 @@ public:
     // 获取几何元素
     EaPoint* getPoint(int pointId);
     EaLine* getLine(int lineId);
-    const QVector<std::shared_ptr<EaPoint>>& getPoints() const { return m_points; }
-    const QVector<std::shared_ptr<EaLine>>& getLines() const { return m_lines; }
+    const std::vector<std::shared_ptr<EaPoint>>& getPoints() const { return m_points; }
+    const std::vector<std::shared_ptr<EaLine>>& getLines() const { return m_lines; }
 
     
     // 选择管理
     void selectPoint(int pointId, bool selected = true);
     void selectLine(int lineId, bool selected = true);
     void clearSelection();
-    QVector<int> getSelectedPoints() const;
-    QVector<int> getSelectedLines() const;
+    std::vector<int> getSelectedPoints() const;
+    std::vector<int> getSelectedLines() const;
     
     // 约束管理
 
     void removeConstraint(int constraintId);
     void clearConstraints();
-    QVariantList getConstraints() const;
+    std::vector<Constraint> getConstraints() const;
     
     // 拖拽约束求解
     bool solveDragConstraint(int draggedPointId, double newX, double newY);
@@ -79,11 +92,11 @@ private:
     EaSession();
 
     // 几何元素存储
-    QVector<std::shared_ptr<EaPoint>> m_points;
-    QVector<std::shared_ptr<EaLine>> m_lines;
+    std::vector<std::shared_ptr<EaPoint>> m_points;
+    std::vector<std::shared_ptr<EaLine>> m_lines;
     
     // 约束存储,
-    QVariantList m_constraints;
+    std::vector<Constraint> m_constraints;
     
     // ID管理
     int m_nextPointId = 1;
@@ -91,8 +104,8 @@ private:
     int m_nextConstraintId = 1;
     
     // 选择状态
-    QVector<int> m_selectedPoints;
-    QVector<int> m_selectedLines;
+    std::vector<int> m_selectedPoints;
+    std::vector<int> m_selectedLines;
     
     // GeometrySolver引用
     GeometrySolver* m_geometrySolver;
