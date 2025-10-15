@@ -11,6 +11,7 @@
 #include "../geometry/eapoint.h"
 #include "../geometry/ealine.h"
 #include "../geometry/eacircle.h"
+#include "../geometry/eaarc.h"
 
 // 约束结构体，替代QVariantMap
 struct Constraint {
@@ -48,9 +49,14 @@ public:
     EaPoint* getPoint(int pointId);
     EaLine* getLine(int lineId);
     EaCircle* getCircle(int circleId);
+    // 统一几何元素访问
+    const std::vector<std::shared_ptr<EaShape>>& getShapes() const { return m_shapes; }
+    
+    // 保持原有的分类访问方法以兼容现有代码
     const std::vector<std::shared_ptr<EaPoint>>& getPoints() const { return m_points; }
     const std::vector<std::shared_ptr<EaLine>>& getLines() const { return m_lines; }
     const std::vector<std::shared_ptr<EaCircle>>& getCircles() const { return m_circles; }
+    const std::vector<std::shared_ptr<EaArc>>& getArcs() const { return m_arcs; }
 
     
     // 选择管理
@@ -79,12 +85,15 @@ public slots:
     int addPoint(double x, double y, double z = 0.0);
     int addLine(int startPointId, int endPointId);
     int addCircle(int centerPointId, double radius);
+    int addArc(int centerPointId, double radius, double start, double end);
     void addDistanceConstraint(int point1Id, int point2Id, double distance);
     void createFixPointConstraint(int pointId);
     void addParallelConstraint(int line1Id, int line2Id);
     void addPerpendicularConstraint(int line1Id, int line2Id);
     void addHorizontalConstraint(int lineId);
     void addVerticalConstraint(int lineId);
+    void addAngleConstraint(int line1Id, int line2Id, double angle);
+    void addArcLineTangentConstraint(int arcId, int lineId);
     void addPtOnLineConstraint(int pointId, int lineId);
     void addPtOnCircleConstraint(int pointId, int centerPointId, double radius);
     void clear();
@@ -96,6 +105,8 @@ public slots:
     void createPerpendicularConstraint();
     void createHorizontalConstraint();
     void createVerticalConstraint();
+    void createAngleConstraint();
+    void createLineTangentConstraint();
     // 更新几何元素
     void updatePointPosition(int pointId, double x, double y, double z = 0.0);
 
@@ -104,6 +115,7 @@ signals:
     void pointAdded(int pointId, double x, double y, double z);
     void lineAdded(int lineId, int startPointId, int endPointId);
     void circleAdded(int circleId, int centerPointId, double radius);
+    void arcAdded(int arcId, int centerPointId, double radius, double start, double end);
     void pointRemoved(int pointId);
     void lineRemoved(int lineId);
     void circleRemoved(int circleId);
@@ -113,10 +125,14 @@ signals:
 private:
     EaSession();
 
-    // 几何元素存储
+    // 几何元素存储 - 统一容器
+    std::vector<std::shared_ptr<EaShape>> m_shapes;
+    
+    // 保持原有的分类存储以兼容现有代码
     std::vector<std::shared_ptr<EaPoint>> m_points;
     std::vector<std::shared_ptr<EaLine>> m_lines;
     std::vector<std::shared_ptr<EaCircle>> m_circles;
+    std::vector<std::shared_ptr<EaArc>> m_arcs;
     
     // 约束存储,
     std::vector<Constraint> m_constraints;

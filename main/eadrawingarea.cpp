@@ -119,15 +119,177 @@ void EaDrawingArea::paint(QPainter *painter)
     // 背景
     painter->fillRect(0, 0, width(), height(), Qt::white);
     
-    // 绘制顺序：网格 -> 坐标轴 -> 线 -> 圆 -> 点
+    // 绘制顺序：网格 -> 坐标轴 -> 几何元素
     if (m_showGrid) {
         drawGrid(painter);
     }
     
     drawCoordinateAxes(painter);
-    drawLines(painter);
-    drawCircles(painter);
-    drawPoints(painter);
+    
+    // 统一绘制所有几何元素
+    drawShapes(painter);
+}
+
+void EaDrawingArea::drawShapes(QPainter *painter)
+{
+    painter->save();
+    
+    // 获取所有几何元素
+    const auto& shapes = m_session->getShapes();
+    
+    // 统一绘制所有几何元素
+    for (const auto& shape : shapes) {
+        if (shape) {
+            // 根据几何元素类型进行坐标转换
+            if (auto point = std::dynamic_pointer_cast<EaPoint>(shape)) {
+                drawPoint(painter, point);
+            } else if (auto line = std::dynamic_pointer_cast<EaLine>(shape)) {
+                drawLine(painter, line);
+            } else if (auto circle = std::dynamic_pointer_cast<EaCircle>(shape)) {
+                drawCircle(painter, circle);
+            } else if (auto arc = std::dynamic_pointer_cast<EaArc>(shape)) {
+                drawArc(painter, arc);
+            }
+        }
+    }
+    
+    painter->restore();
+}
+
+void EaDrawingArea::drawPoint(QPainter *painter, std::shared_ptr<EaPoint> point)
+{
+    if (!painter || !point) return;
+    
+    QPointF screenPos = worldToScreen(point->pos().x(), point->pos().y());
+    
+    // 选择颜色
+    QColor color = (point->isSelected() || point->getId() == m_hoveredPointId) 
+                   ? m_selectedPointColor : m_pointColor;
+    
+    // 如果是悬停点，绘制外圈
+    if (point->getId() == m_hoveredPointId) {
+        QPen hoverPen(m_selectedPointColor, 2.0);
+        painter->setPen(hoverPen);
+        painter->setBrush(Qt::NoBrush);
+        painter->drawEllipse(screenPos, 10, 10);
+    }
+    
+    // 绘制点
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(color);
+    double radius = point->isSelected() ? 8 : 6;
+    painter->drawEllipse(screenPos, radius, radius);
+    
+    // 绘制点ID标签
+    painter->setPen(Qt::black);
+    QFont font = painter->font();
+    font.setPixelSize(10);
+    painter->setFont(font);
+    painter->drawText(QPointF(screenPos.x() + 12, screenPos.y() + 4), 
+                     QString("P%1").arg(point->getId()));
+}
+
+void EaDrawingArea::drawLine(QPainter *painter, std::shared_ptr<EaLine> line)
+{
+    if (!painter || !line) return;
+    
+    EaPoint* startPoint = line->getStartPoint();
+    EaPoint* endPoint = line->getEndPoint();
+    
+    if (!startPoint || !endPoint) return;
+    
+    QPointF startPos = worldToScreen(startPoint->pos().x(), startPoint->pos().y());
+    QPointF endPos = worldToScreen(endPoint->pos().x(), endPoint->pos().y());
+    
+    // 设置线条样式
+    QPen linePen(m_lineColor, 2.0);
+    if (line->isSelected()) {
+        linePen.setWidth(3);
+        linePen.setColor(m_selectedPointColor);
+    }
+    painter->setPen(linePen);
+    
+    // 绘制线段
+    painter->drawLine(startPos, endPos);
+}
+
+void EaDrawingArea::drawCircle(QPainter *painter, std::shared_ptr<EaCircle> circle)
+{
+    if (!painter || !circle) return;
+    
+    EaPoint* centerPoint = circle->getCenter();
+    if (!centerPoint) return;
+    
+    QPointF centerPos = worldToScreen(centerPoint->pos().x(), centerPoint->pos().y());
+    double radius = circle->getRadius() * m_zoomLevel; // 根据缩放级别调整半径
+    
+    // 选择颜色和线宽
+    QColor color = circle->isSelected() ? QColor(244, 67, 54) : QColor(33, 150, 243); // 红色或蓝色
+    double width = circle->isSelected() ? 3.0 : 2.0;
+    
+    QPen circlePen(color, width);
+    painter->setPen(circlePen);
+    painter->setBrush(Qt::NoBrush); // 圆不填充
+    
+    // 绘制圆
+    painter->drawEllipse(centerPos, radius, radius);
+    
+    // 如果圆被选中，绘制圆心点
+    if (circle->isSelected()) {
+        painter->setPen(QPen(QColor(255, 0, 0), 4.0));
+        painter->drawPoint(centerPos);
+    }
+    
+    // 绘制圆ID标签
+    painter->setPen(Qt::black);
+    QFont font = painter->font();
+    font.setPixelSize(10);
+    painter->setFont(font);
+    painter->drawText(QPointF(centerPos.x() + radius + 5, centerPos.y() - 5), 
+                     QString("C%1").arg(circle->getId()));
+}
+
+void EaDrawingArea::drawArc(QPainter *painter, std::shared_ptr<EaArc> arc)
+{
+    if (!painter || !arc) return;
+    
+    EaPoint* centerPoint = arc->getCenter();
+    if (!centerPoint) return;
+    
+    QPointF centerPos = worldToScreen(centerPoint->pos().x(), centerPoint->pos().y());
+    double radius = arc->getRadius() * m_zoomLevel; // 根据缩放级别调整半径
+    
+    // 选择颜色和线宽
+    QColor color = arc->isSelected() ? QColor(244, 67, 54) : QColor(33, 150, 243); // 红色或蓝色
+    double width = arc->isSelected() ? 3.0 : 2.0;
+    
+    QPen arcPen(color, width);
+    painter->setPen(arcPen);
+    
+    // 计算圆弧的边界矩形
+    QRectF arcRect(centerPos.x() - radius, centerPos.y() - radius, 
+                   radius * 2, radius * 2);
+    
+    // 将角度从度转换为Qt的1/16度单位
+    int startAngle16 = static_cast<int>(arc->getStartAngle() * 16);
+    int spanAngle16 = static_cast<int>((arc->getEndAngle() - arc->getStartAngle()) * 16);
+    
+    // 绘制圆弧
+    painter->drawArc(arcRect, startAngle16, spanAngle16);
+    
+    // 如果圆弧被选中，绘制圆心点
+    if (arc->isSelected()) {
+        painter->setPen(QPen(QColor(255, 0, 0), 4.0));
+        painter->drawPoint(centerPos);
+    }
+    
+    // 绘制圆弧ID标签
+    painter->setPen(Qt::black);
+    QFont font = painter->font();
+    font.setPixelSize(10);
+    painter->setFont(font);
+    painter->drawText(QPointF(centerPos.x() + radius + 5, centerPos.y() - 5), 
+                     QString("A%1").arg(arc->getId()));
 }
 
 void EaDrawingArea::drawGrid(QPainter *painter)

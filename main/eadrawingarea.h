@@ -79,6 +79,16 @@ private slots:
 private:
     // 绘制辅助方法
     void drawGrid(QPainter *painter);
+    // 统一绘制方法
+    void drawShapes(QPainter *painter);
+    
+    // 单个几何元素绘制方法（带坐标转换）
+    void drawPoint(QPainter *painter, std::shared_ptr<EaPoint> point);
+    void drawLine(QPainter *painter, std::shared_ptr<EaLine> line);
+    void drawCircle(QPainter *painter, std::shared_ptr<EaCircle> circle);
+    void drawArc(QPainter *painter, std::shared_ptr<EaArc> arc);
+    
+    // 保持原有的分类绘制方法以兼容现有代码
     void drawPoints(QPainter *painter);
     void drawLines(QPainter *painter);
     void drawCircles(QPainter *painter);

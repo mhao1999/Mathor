@@ -1,5 +1,7 @@
 QT += quick quickcontrols2
 
+DEFINES += _USE_MATH_DEFINES
+
 CONFIG += c++17
 
 # You can make your code fail to compile if it uses deprecated APIs.
@@ -13,6 +15,7 @@ INCLUDEPATH +=$$PWD/include
 LIBS += -L$$PWD/lib -lopenblas -llapack
 
 SOURCES += \
+        geometry/eaarc.cpp \
         geometry/eacircle.cpp \
         main/eageosolver.cpp \
         geometry/ealine.cpp \
@@ -23,6 +26,7 @@ SOURCES += \
         main/easession.cpp
 
 HEADERS += \
+        geometry/eaarc.h \
         geometry/eacircle.h \
         main/eageosolver.h \
         geometry/ealine.h \

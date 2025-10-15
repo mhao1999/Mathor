@@ -23,7 +23,11 @@ int EaSession::addPoint(double x, double y, double z)
     point->setPosition(x, y, z);
     point->setId(m_nextPointId);
     
+    // 添加到分类容器
     m_points.push_back(point);
+    // 添加到统一容器
+    m_shapes.push_back(std::static_pointer_cast<EaShape>(point));
+    
     int pointId = m_nextPointId++;
     
     emit pointAdded(pointId, x, y, z);
@@ -49,7 +53,11 @@ int EaSession::addLine(int startPointId, int endPointId)
     line->setEndPoint(endPoint);
     line->setId(m_nextLineId);
     
+    // 添加到分类容器
     m_lines.push_back(line);
+    // 添加到统一容器
+    m_shapes.push_back(std::static_pointer_cast<EaShape>(line));
+    
     int lineId = m_nextLineId++;
     
     emit lineAdded(lineId, startPointId, endPointId);
@@ -74,7 +82,11 @@ int EaSession::addCircle(int centerPointId, double radius)
     circle->setRadius(radius);
     circle->setId(m_nextCircleId);
     
+    // 添加到分类容器
     m_circles.push_back(circle);
+    // 添加到统一容器
+    m_shapes.push_back(std::static_pointer_cast<EaShape>(circle));
+    
     int circleId = m_nextCircleId++;
     
     emit circleAdded(circleId, centerPointId, radius);
@@ -82,6 +94,37 @@ int EaSession::addCircle(int centerPointId, double radius)
     
     qDebug() << "EaSession: Added circle" << circleId << "with center point" << centerPointId << "radius" << radius;
     return circleId;
+}
+
+int EaSession::addArc(int centerPointId, double radius, double start, double end)
+{
+    // 验证圆心是否存在
+    EaPoint* centerPoint = getPoint(centerPointId);
+
+    if (!centerPoint) {
+        qWarning() << "EaSession: Cannot create arc - invalid center point ID:" << centerPointId;
+        return -1;
+    }
+
+    auto arc = std::make_shared<EaArc>();
+    arc->setCenter(centerPoint);
+    arc->setRadius(radius);
+    arc->setStartAngle(start);
+    arc->setEndAngle(end);
+    arc->setId(m_nextCircleId); // 使用相同的ID计数器
+
+    // 添加到分类容器
+    m_arcs.push_back(arc);
+    // 添加到统一容器
+    m_shapes.push_back(std::static_pointer_cast<EaShape>(arc));
+
+    int arcId = m_nextCircleId++;
+
+    emit arcAdded(arcId, centerPointId, radius, start, end);
+    emit geometryChanged();
+
+    qDebug() << "EaSession: Added arc" << arcId << "with center point" << centerPointId << "radius" << radius;
+    return arcId;
 }
 
 void EaSession::removePoint(int pointId)
@@ -139,9 +182,14 @@ void EaSession::removeCircle(int circleId)
 
 void EaSession::clear()
 {
+    // 清空统一容器
+    m_shapes.clear();
+    
+    // 清空分类容器
     m_points.clear();
     m_lines.clear();
     m_circles.clear();
+    m_arcs.clear();
     m_constraints.clear();
     m_selectedPoints.clear();
     m_selectedLines.clear();
@@ -485,6 +533,67 @@ void EaSession::addVerticalConstraint(int lineId)
              << "for line" << lineId;
 }
 
+void EaSession::addAngleConstraint(int line1Id, int line2Id, double angle)
+{
+    // 验证线段是否存在
+    EaLine* line1 = getLine(line1Id);
+    EaLine* line2 = getLine(line2Id);
+    
+    if (!line1 || !line2) {
+        qWarning() << "EaSession: Cannot add angle constraint - invalid line IDs:" << line1Id << line2Id;
+        return;
+    }
+    
+    // 添加角度约束
+    Constraint angleConstraint(m_nextConstraintId++, "angle");
+    angleConstraint.data["line1"] = line1Id;
+    angleConstraint.data["line2"] = line2Id;
+    angleConstraint.data["angle"] = angle;
+    
+    m_constraints.push_back(angleConstraint);
+    
+    qDebug() << "EaSession: Added angle constraint" << angleConstraint.id 
+             << "between lines" << line1Id << "and" << line2Id << "with angle" << angle << "degrees";
+}
+
+void EaSession::addArcLineTangentConstraint(int arcId, int lineId)
+{
+    // 验证圆弧和直线是否存在
+    // 注意：这里我们需要通过统一容器来获取圆弧，因为EaArc没有单独的getArc方法
+    EaLine* line = getLine(lineId);
+    
+    if (!line) {
+        qWarning() << "EaSession: Cannot add arc-line tangent constraint - invalid line ID:" << lineId;
+        return;
+    }
+    
+    // 验证圆弧是否存在（通过统一容器查找）
+    bool arcFound = false;
+    for (const auto& shape : m_shapes) {
+        if (auto arc = std::dynamic_pointer_cast<EaArc>(shape)) {
+            if (arc->getId() == arcId) {
+                arcFound = true;
+                break;
+            }
+        }
+    }
+    
+    if (!arcFound) {
+        qWarning() << "EaSession: Cannot add arc-line tangent constraint - invalid arc ID:" << arcId;
+        return;
+    }
+    
+    // 添加圆弧与直线相切约束
+    Constraint tangentConstraint(m_nextConstraintId++, "arc_line_tangent");
+    tangentConstraint.data["arc"] = arcId;
+    tangentConstraint.data["line"] = lineId;
+    
+    m_constraints.push_back(tangentConstraint);
+    
+    qDebug() << "EaSession: Added arc-line tangent constraint" << tangentConstraint.id 
+             << "between arc" << arcId << "and line" << lineId;
+}
+
 void EaSession::addPtOnLineConstraint(int pointId, int lineId)
 {
     // 验证点和线段是否存在
@@ -643,6 +752,63 @@ void EaSession::createVerticalConstraint()
     this->addVerticalConstraint(line1);
 
     qDebug() << "EaSession: Created vertical constraint for line" << line1;
+}
+
+void EaSession::createAngleConstraint()
+{
+    this->clear();
+    
+    // 创建4个点，构成两条线段
+    // 第一条线段：(点1，点2) - 水平线段
+    int pt1 = this->addPoint(50.0, 100.0);   // 线段1起点
+    int pt2 = this->addPoint(150.0, 100.0);  // 线段1终点
+    
+    // 第二条线段：(点3，点4) - 与第一条线段成45度角
+    int pt3 = this->addPoint(100.0, 50.0);   // 线段2起点
+    int pt4 = this->addPoint(150.0, 150.0);  // 线段2终点
+    
+    // 创建两条线段
+    int line1 = this->addLine(pt1, pt2);     // 水平线段
+    int line2 = this->addLine(pt3, pt4);     // 斜线段
+    
+    // 固定一些点以稳定约束系统
+    this->createFixPointConstraint(pt1);     // 固定线段1起点
+    this->createFixPointConstraint(pt3);     // 固定线段2起点
+    this->addHorizontalConstraint(line2);
+    
+    // 添加角度约束（45度角）
+    this->addAngleConstraint(line1, line2, 45.0);
+    
+    qDebug() << "EaSession: Created angle constraint between line" << line1 << "and line" << line2 << "with angle 45 degrees";
+}
+
+void EaSession::createLineTangentConstraint()
+{
+    this->clear();
+
+    // 创建圆心点
+    int centerPt = this->addPoint(0.0, 0.0);  // 圆心位置
+
+    // 创建直线：两个点构成一条与圆弧相切的直线
+    // 计算相切点位置：圆弧在0度时，相切点应该在(230, 100)
+    int pt1 = this->addPoint(230.0, 100.0);   // 直线起点（相切点）
+    int pt2 = this->addPoint(300.0, 100.0);  // 直线终点
+
+    // 创建直线
+    int lineId = this->addLine(pt1, pt2);
+
+    // 创建圆弧实体用于界面显示
+    int arcId = this->addArc(centerPt, 130.0, 0.0, 90.0); // 半径130.0，从0度到90度
+
+    // 固定一些点以稳定约束系统
+    this->createFixPointConstraint(centerPt);  // 固定圆心
+    this->createFixPointConstraint(pt1);       // 固定直线起点（相切点）
+
+    // 添加圆弧与直线相切约束
+    this->addArcLineTangentConstraint(arcId, lineId);
+
+    qDebug() << "EaSession: Created arc-line tangent constraint between arc" << arcId << "and line" << lineId;
+    qDebug() << "EaSession: Points - centerPt:" << centerPt << "pt1:" << pt1 << "pt2:" << pt2;
 }
 
 void EaSession::removeConstraint(int constraintId)

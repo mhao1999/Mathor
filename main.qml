@@ -296,9 +296,9 @@ Window {
                                     Layout.fillWidth: true
                                     enabled: drawingArea !== null
                                     onClicked: {
-                                        // TODO: 实现角度约束
-                                        statusText.text = "角度约束功能待实现"
-                                        statusText.color = "orange"
+                                        globalSession.createAngleConstraint()
+                                        statusText.text = "角度约束已创建"
+                                        statusText.color = "green"
                                     }
                                 }
 
@@ -307,9 +307,9 @@ Window {
                                     Layout.fillWidth: true
                                     enabled: drawingArea !== null
                                     onClicked: {
-                                        // TODO: 实现相切约束
-                                        statusText.text = "相切约束功能待实现"
-                                        statusText.color = "orange"
+                                        globalSession.createLineTangentConstraint()
+                                        statusText.text = "相切约束已创建"
+                                        statusText.color = "green"
                                     }
                                 }
 
@@ -319,6 +319,17 @@ Window {
                                     enabled: drawingArea !== null
                                     onClicked: {
                                         // TODO: 实现对称约束
+                                        statusText.text = "对称约束功能待实现"
+                                        statusText.color = "orange"
+                                    }
+                                }
+
+                                Button {
+                                    text: "直线夹角"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        // TODO: 绘制直线夹角
                                         statusText.text = "对称约束功能待实现"
                                         statusText.color = "orange"
                                     }

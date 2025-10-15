@@ -145,6 +145,7 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
 {
     qDebug() << "GeometrySolver: solveDragConstraint called for point" << draggedPointId 
              << "to position" << newX << newY;
+    EaSession* session = EaSession::getInstance();
     
     // 重置系统
     m_sys.params = 0;
@@ -400,6 +401,158 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
                          << "for line" << lineId << "entity" << lineToEntity[lineId];
             } else {
                 qWarning() << "GeometrySolver: Cannot add vertical constraint - missing line entity" << lineId;
+            }
+        }
+        else if (type == "angle") {
+            int line1Id = std::any_cast<int>(constraint.data.at("line1"));
+            int line2Id = std::any_cast<int>(constraint.data.at("line2"));
+            double angle = std::any_cast<double>(constraint.data.at("angle"));
+            
+            if (lineToEntity.find(line1Id) != lineToEntity.end() && 
+                lineToEntity.find(line2Id) != lineToEntity.end()) {
+                
+                // 添加角度约束
+                int constraintId = m_sys.constraints + 1;
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_ANGLE,
+                    200,
+                    angle,// * M_PI / 180.0,  // 角度转换为弧度
+                    0, 0,
+                    lineToEntity[line1Id], lineToEntity[line2Id]);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
+                
+                qDebug() << "GeometrySolver: Added angle constraint" << constraintId
+                         << "between lines" << line1Id << "and" << line2Id 
+                         << "entities" << lineToEntity[line1Id] << lineToEntity[line2Id]
+                         << "with angle" << angle << "degrees";
+            } else {
+                qWarning() << "GeometrySolver: Cannot add angle constraint - missing line entities" << line1Id << line2Id;
+            }
+        }
+        else if (type == "arc_line_tangent") {
+            int arcId = std::any_cast<int>(constraint.data.at("arc"));
+            int lineId = std::any_cast<int>(constraint.data.at("line"));
+            
+            // 查找圆弧和直线的实体ID
+            int arcEntityId = -1;
+            int lineEntityId = -1;
+            double arcRadius = 0.0;
+            int centerPointId = -1;
+            double startAngle = 0.0;
+            double endAngle = 0.0;
+            
+            // 查找圆弧信息（通过统一容器）
+            for (const auto& shape : session->getShapes()) {
+                if (auto arc = std::dynamic_pointer_cast<EaArc>(shape)) {
+                    if (arc->getId() == arcId) {
+                        EaPoint* centerPoint = arc->getCenter();
+                        if (centerPoint) {
+                            centerPointId = centerPoint->getId();
+                            arcRadius = arc->getRadius();
+                            startAngle = arc->getStartAngle();
+                            endAngle = arc->getEndAngle();
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            // 查找直线实体ID
+            if (lineToEntity.find(lineId) != lineToEntity.end()) {
+                lineEntityId = lineToEntity[lineId];
+            }
+            
+            if (centerPointId != -1 && lineEntityId != -1 && 
+                pointToEntity.find(centerPointId) != pointToEntity.end()) {
+                
+                // 创建圆弧的起点和终点点实体
+                // 计算起点和终点的坐标
+                double centerX = 0.0, centerY = 0.0;
+                for (const auto& shape : session->getShapes()) {
+                    if (auto point = std::dynamic_pointer_cast<EaPoint>(shape)) {
+                        if (point->getId() == centerPointId) {
+                            centerX = point->pos().x();
+                            centerY = point->pos().y();
+                            break;
+                        }
+                    }
+                }
+                
+                // 计算起点坐标
+                double startX = centerX + arcRadius * cos(startAngle * M_PI / 180.0);
+                double startY = centerY + arcRadius * sin(startAngle * M_PI / 180.0);
+                
+                // 计算终点坐标
+                double endX = centerX + arcRadius * cos(endAngle * M_PI / 180.0);
+                double endY = centerY + arcRadius * sin(endAngle * M_PI / 180.0);
+                
+                qDebug() << "GeometrySolver: Arc calculation - center(" << centerX << "," << centerY 
+                         << ") radius" << arcRadius << "startAngle" << startAngle << "endAngle" << endAngle;
+                qDebug() << "GeometrySolver: Arc start point(" << startX << "," << startY 
+                         << ") end point(" << endX << "," << endY << ")";
+                
+                // 创建起点参数和实体
+                int startXParamIndex = paramIndex++;
+                m_sys.param[m_sys.params++] = Slvs_MakeParam(startXParamIndex, g, startX);
+                int startYParamIndex = paramIndex++;
+                m_sys.param[m_sys.params++] = Slvs_MakeParam(startYParamIndex, g, startY);
+                
+                int startPointEntityIndex = entityIndex++;
+                m_sys.entity[m_sys.entities++] = Slvs_MakePoint2d(startPointEntityIndex, g, 200, startXParamIndex, startYParamIndex);
+                
+                // 创建终点参数和实体
+                int endXParamIndex = paramIndex++;
+                m_sys.param[m_sys.params++] = Slvs_MakeParam(endXParamIndex, g, endX);
+                int endYParamIndex = paramIndex++;
+                m_sys.param[m_sys.params++] = Slvs_MakeParam(endYParamIndex, g, endY);
+                
+                int endPointEntityIndex = entityIndex++;
+                m_sys.entity[m_sys.entities++] = Slvs_MakePoint2d(endPointEntityIndex, g, 200, endXParamIndex, endYParamIndex);
+                
+                // 创建圆弧实体
+                arcEntityId = entityIndex++;
+                m_sys.entity[m_sys.entities++] = Slvs_MakeArcOfCircle(arcEntityId, g, 200, 102,
+                                                                      pointToEntity[centerPointId], 
+                                                                      startPointEntityIndex, 
+                                                                      endPointEntityIndex);
+                
+                // 首先添加直径约束来固定圆弧的半径
+                int diameterConstraintId = m_sys.constraints + 1;
+                Slvs_Constraint diameterConstraint = Slvs_MakeConstraint(
+                    diameterConstraintId, g,
+                    SLVS_C_DIAMETER,
+                    200,
+                    arcRadius * 2.0,  // 直径 = 半径 * 2
+                    0, 0, arcEntityId, 0);
+                diameterConstraint.entityC = 0;
+                diameterConstraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = diameterConstraint;
+                
+                // 然后添加圆弧与直线相切约束
+                int constraintId = m_sys.constraints + 1;
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_ARC_LINE_TANGENT,
+                    200,
+                    0.0,
+                    0, 0, arcEntityId, lineEntityId);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
+                
+                qDebug() << "GeometrySolver: Created arc entity" << arcEntityId 
+                         << "with center" << centerPointId << "start" << startPointEntityIndex << "end" << endPointEntityIndex;
+                qDebug() << "GeometrySolver: Added diameter constraint" << diameterConstraintId
+                         << "for arc" << arcId << "with radius" << arcRadius;
+                qDebug() << "GeometrySolver: Added arc-line tangent constraint" << constraintId
+                         << "between arc" << arcId << "and line" << lineId 
+                         << "entities" << arcEntityId << lineEntityId;
+            } else {
+                qWarning() << "GeometrySolver: Cannot add arc-line tangent constraint - missing entities" 
+                           << "arc" << arcId << "line" << lineId << "centerPoint" << centerPointId << "lineEntity" << lineEntityId;
             }
         }
         else if (type == "pt_on_line") {
