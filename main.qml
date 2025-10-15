@@ -20,12 +20,9 @@ Window {
         id: solver
         
         onSolvingFinished: function(success) {
+            // 注意：现在点位置更新由EaSession.solveDragConstraint直接处理
+            // 这里只处理状态显示
             if (success) {
-                // 更新绘图区域中的点位置
-                var points = solver.getSolvedPoints()
-                globalSession.updatePointPosition(1, points.x1, points.y1)
-                globalSession.updatePointPosition(2, points.x2, points.y2)
-                
                 statusText.text = "求解成功! 自由度: " + solver.dof
                 statusText.color = "green"
             } else {
@@ -226,12 +223,11 @@ Window {
                             }
                             
                             Button {
-                                text: "连接点 1 和点 2"
+                                text: "平行约束"
                                 Layout.fillWidth: true
                                 enabled: drawingArea !== null
                                 onClicked: {
-                                    globalSession.addLine(1, 2)
-                                    globalSession.addDistanceConstraint(1, 2, 100.0)
+                                    globalSession.createParallelConstraint()
                                 }
                             }
                             
@@ -261,13 +257,13 @@ Window {
                             anchors.fill: parent
                             spacing: 8
                             
-                            // Text {
-                            //     text: "确保已添加点 1 和点 2"
-                            //     font.pixelSize: 11
-                            //     color: "#666"
-                            //     wrapMode: Text.WordWrap
-                            //     Layout.fillWidth: true
-                            // }
+                            Text {
+                                text: "先创建约束场景，再点击应用约束"
+                                font.pixelSize: 11
+                                color: "#666"
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
+                            }
                             
                             // RowLayout {
                             //     Label { text: "目标距离:" }
@@ -280,19 +276,27 @@ Window {
                             // }
                             
                             Button {
-                                text: "应用距离约束"
+                                text: "应用约束"
                                 Layout.fillWidth: true
                                 highlighted: true
                                 onClicked: {
-                                    // 获取当前点1和点2的位置
-                                    // 这里简化处理，使用初始坐标
-                                    var p1 = drawingArea.screenToWorld(0, 0) // 示例
-                                    solver.solveSimple2DDistance(
-                                        10, 20,  // 点1初始坐标
-                                        50, 60,  // 点2初始坐标
-                                        100.0
-                                        //parseFloat(targetDistanceField.text)
-                                    )
+                                    // 使用通用的solveDragConstraint方法
+                                    // 这里需要指定要拖拽的点ID和新位置
+                                    // 由于这是演示，我们使用点2作为拖拽点
+                                    var draggedPointId = 2
+                                    var newX = 80.0  // 新的X坐标
+                                    var newY = 80.0  // 新的Y坐标
+                                    
+                                    // 调用EaSession的solveDragConstraint方法
+                                    var success = globalSession.solveDragConstraint(draggedPointId, newX, newY)
+                                    
+                                    if (success) {
+                                        statusText.text = "约束求解成功!"
+                                        statusText.color = "green"
+                                    } else {
+                                        statusText.text = "约束求解失败"
+                                        statusText.color = "red"
+                                    }
                                 }
                             }
                             

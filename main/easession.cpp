@@ -150,6 +150,11 @@ void EaSession::createGongdianConstraint()
     qDebug() << "EaSession: Points" << pt1 << pt2 << pt3 << "are fixed, point" << pt4 << "can move freely";
 }
 
+void EaSession::createParallelConstraint()
+{
+
+}
+
 // ============ 获取几何元素 ============
 
 EaPoint* EaSession::getPoint(int pointId)
