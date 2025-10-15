@@ -82,6 +82,9 @@ public slots:
     void addDistanceConstraint(int point1Id, int point2Id, double distance);
     void createFixPointConstraint(int pointId);
     void addParallelConstraint(int line1Id, int line2Id);
+    void addPerpendicularConstraint(int line1Id, int line2Id);
+    void addHorizontalConstraint(int lineId);
+    void addVerticalConstraint(int lineId);
     void addPtOnLineConstraint(int pointId, int lineId);
     void addPtOnCircleConstraint(int pointId, int centerPointId, double radius);
     void clear();
@@ -90,6 +93,9 @@ public slots:
     void createParallelConstraint();
     void createPtInLineConstraint();
     void createPtOnCircleConstraint();
+    void createPerpendicularConstraint();
+    void createHorizontalConstraint();
+    void createVerticalConstraint();
     // 更新几何元素
     void updatePointPosition(int pointId, double x, double y, double z = 0.0);
 

@@ -329,6 +329,79 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
                 qWarning() << "GeometrySolver: Cannot add parallel constraint - missing line entities" << line1Id << line2Id;
             }
         }
+        else if (type == "perpendicular") {
+            int line1Id = std::any_cast<int>(constraint.data.at("line1"));
+            int line2Id = std::any_cast<int>(constraint.data.at("line2"));
+            
+            if (lineToEntity.find(line1Id) != lineToEntity.end() && 
+                lineToEntity.find(line2Id) != lineToEntity.end()) {
+                
+                // 添加垂直约束
+                int constraintId = m_sys.constraints + 1;
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_PERPENDICULAR,
+                    200,
+                    0.0,
+                    0, 0,
+                    lineToEntity[line1Id], lineToEntity[line2Id]);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
+                
+                qDebug() << "GeometrySolver: Added perpendicular constraint" << constraintId
+                         << "between lines" << line1Id << "and" << line2Id 
+                         << "entities" << lineToEntity[line1Id] << lineToEntity[line2Id];
+            } else {
+                qWarning() << "GeometrySolver: Cannot add perpendicular constraint - missing line entities" << line1Id << line2Id;
+            }
+        }
+        else if (type == "horizontal") {
+            int lineId = std::any_cast<int>(constraint.data.at("line"));
+            
+            if (lineToEntity.find(lineId) != lineToEntity.end()) {
+                
+                // 添加水平约束
+                int constraintId = m_sys.constraints + 1;
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_HORIZONTAL,
+                    200,
+                    0.0,
+                    0, 0, lineToEntity[lineId], 0);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
+                
+                qDebug() << "GeometrySolver: Added horizontal constraint" << constraintId
+                         << "for line" << lineId << "entity" << lineToEntity[lineId];
+            } else {
+                qWarning() << "GeometrySolver: Cannot add horizontal constraint - missing line entity" << lineId;
+            }
+        }
+        else if (type == "vertical") {
+            int lineId = std::any_cast<int>(constraint.data.at("line"));
+
+            if (lineToEntity.find(lineId) != lineToEntity.end()) {
+
+                // 添加水平约束
+                int constraintId = m_sys.constraints + 1;
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_VERTICAL,
+                    200,
+                    0.0,
+                    0, 0, lineToEntity[lineId], 0);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
+
+                qDebug() << "GeometrySolver: Added vertical constraint" << constraintId
+                         << "for line" << lineId << "entity" << lineToEntity[lineId];
+            } else {
+                qWarning() << "GeometrySolver: Cannot add vertical constraint - missing line entity" << lineId;
+            }
+        }
         else if (type == "pt_on_line") {
             int pointId = std::any_cast<int>(constraint.data.at("point"));
             int lineId = std::any_cast<int>(constraint.data.at("line"));

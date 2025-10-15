@@ -423,6 +423,68 @@ void EaSession::addParallelConstraint(int line1Id, int line2Id)
              << "between lines" << line1Id << "and" << line2Id;
 }
 
+void EaSession::addPerpendicularConstraint(int line1Id, int line2Id)
+{
+    // 验证线段是否存在
+    EaLine* line1 = getLine(line1Id);
+    EaLine* line2 = getLine(line2Id);
+    
+    if (!line1 || !line2) {
+        qWarning() << "EaSession: Cannot add perpendicular constraint - invalid line IDs:" << line1Id << line2Id;
+        return;
+    }
+    
+    // 添加垂直约束
+    Constraint perpendicularConstraint(m_nextConstraintId++, "perpendicular");
+    perpendicularConstraint.data["line1"] = line1Id;
+    perpendicularConstraint.data["line2"] = line2Id;
+    
+    m_constraints.push_back(perpendicularConstraint);
+    
+    qDebug() << "EaSession: Added perpendicular constraint" << perpendicularConstraint.id 
+             << "between lines" << line1Id << "and" << line2Id;
+}
+
+void EaSession::addHorizontalConstraint(int lineId)
+{
+    // 验证线段是否存在
+    EaLine* line = getLine(lineId);
+    
+    if (!line) {
+        qWarning() << "EaSession: Cannot add horizontal constraint - invalid line ID:" << lineId;
+        return;
+    }
+    
+    // 添加水平约束
+    Constraint horizontalConstraint(m_nextConstraintId++, "horizontal");
+    horizontalConstraint.data["line"] = lineId;
+    
+    m_constraints.push_back(horizontalConstraint);
+    
+    qDebug() << "EaSession: Added horizontal constraint" << horizontalConstraint.id 
+             << "for line" << lineId;
+}
+
+void EaSession::addVerticalConstraint(int lineId)
+{
+    // 验证线段是否存在
+    EaLine* line = getLine(lineId);
+
+    if (!line) {
+        qWarning() << "EaSession: Cannot add vertical constraint - invalid line ID:" << lineId;
+        return;
+    }
+
+    // 添加水平约束
+    Constraint verticalConstraint(m_nextConstraintId++, "vertical");
+    verticalConstraint.data["line"] = lineId;
+
+    m_constraints.push_back(verticalConstraint);
+
+    qDebug() << "EaSession: Added vertical constraint" << verticalConstraint.id
+             << "for line" << lineId;
+}
+
 void EaSession::addPtOnLineConstraint(int pointId, int lineId)
 {
     // 验证点和线段是否存在
@@ -513,6 +575,74 @@ void EaSession::createPtOnCircleConstraint()
     qDebug() << "EaSession: Created point on circle constraint with center point" << centerPt 
              << "and point on circle" << ptOnCircle << "with radius 130.0";
     qDebug() << "EaSession: Created circle" << circleId << "for display";
+}
+
+void EaSession::createPerpendicularConstraint()
+{
+    this->clear();
+    
+    // 创建4个点，构成两条垂直的线段
+    // 第一条线段：(点1，点2) - 水平线段
+    int pt1 = this->addPoint(50.0, 100.0);   // 线段1起点
+    int pt2 = this->addPoint(150.0, 100.0);  // 线段1终点
+    
+    // 第二条线段：(点3，点4) - 垂直线段
+    int pt3 = this->addPoint(100.0, 50.0);   // 线段2起点
+    int pt4 = this->addPoint(100.0, 150.0);  // 线段2终点
+    
+    // 创建两条线段
+    int line1 = this->addLine(pt1, pt2);     // 水平线段
+    int line2 = this->addLine(pt3, pt4);     // 垂直线段
+    
+    // 固定一些点以稳定约束系统
+    // this->createFixPointConstraint(pt1);     // 固定线段1起点
+    this->createFixPointConstraint(pt3);     // 固定线段2起点
+    this->createFixPointConstraint(pt4);
+    
+    // 添加垂直约束
+    this->addPerpendicularConstraint(line1, line2);
+    
+    qDebug() << "EaSession: Created perpendicular constraint between line" << line1 << "and line" << line2;
+}
+
+void EaSession::createHorizontalConstraint()
+{
+    this->clear();
+    
+    // 创建一条线段，初始不是水平的
+    int pt1 = this->addPoint(50.0, 80.0);    // 线段起点
+    int pt2 = this->addPoint(150.0, 120.0);  // 线段终点（不是水平）
+    
+    // 创建线段
+    int line1 = this->addLine(pt1, pt2);
+    
+    // 固定一个点以稳定约束系统
+    // this->createFixPointConstraint(pt1);     // 固定线段起点
+    
+    // 添加水平约束
+    this->addHorizontalConstraint(line1);
+    
+    qDebug() << "EaSession: Created horizontal constraint for line" << line1;
+}
+
+void EaSession::createVerticalConstraint()
+{
+    this->clear();
+
+    // 创建一条线段，初始不是水平的
+    int pt1 = this->addPoint(50.0, 80.0);    // 线段起点
+    int pt2 = this->addPoint(150.0, 120.0);  // 线段终点（不是水平）
+
+    // 创建线段
+    int line1 = this->addLine(pt1, pt2);
+
+    // 固定一个点以稳定约束系统
+    // this->createFixPointConstraint(pt1);     // 固定线段起点
+
+    // 添加水平约束
+    this->addVerticalConstraint(line1);
+
+    qDebug() << "EaSession: Created vertical constraint for line" << line1;
 }
 
 void EaSession::removeConstraint(int constraintId)
