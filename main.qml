@@ -55,14 +55,14 @@ Window {
                 // 点被点击
                 onPointClicked: function(pointId, x, y) {
                     console.log("点击点", pointId, "坐标:", x, y)
-                    pointInfoText.text = "点 P" + pointId + ": (" + 
-                        x.toFixed(2) + ", " + y.toFixed(2) + ")"
+                    pointInfoText.text = "点 P" + pointId + ": (" +
+                            x.toFixed(2) + ", " + y.toFixed(2) + ")"
                 }
                 
                 // 点被拖拽
                 onPointDragged: function(pointId, x, y) {
-                    pointInfoText.text = "拖拽点 P" + pointId + ": (" + 
-                        x.toFixed(2) + ", " + y.toFixed(2) + ")"
+                    pointInfoText.text = "拖拽点 P" + pointId + ": (" +
+                            x.toFixed(2) + ", " + y.toFixed(2) + ")"
                 }
                 
                 // 点释放
@@ -163,8 +163,8 @@ Window {
                             }
                             
                             RowLayout {
-                                Label { 
-                                    text: "网格大小:" 
+                                Label {
+                                    text: "网格大小:"
                                     Layout.preferredWidth: 80
                                 }
                                 Slider {
@@ -175,7 +175,7 @@ Window {
                                     stepSize: 5
                                     Layout.fillWidth: true
                                 }
-                                Label { 
+                                Label {
                                     text: gridSizeSlider.value.toFixed(0)
                                     Layout.preferredWidth: 30
                                 }
@@ -202,67 +202,143 @@ Window {
                         title: "几何操作"
                         Layout.fillWidth: true
                         
-                        ColumnLayout {
+                        RowLayout {
                             anchors.fill: parent
                             spacing: 8
                             
-                            Button {
-                                text: "固定点和距离约束"
+                            // 第一列按钮
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                onClicked: {
-                                    globalSession.createConstraint1()
+                                spacing: 8
+                                
+                                Button {
+                                    text: "固定点和距离约束"
+                                    Layout.fillWidth: true
+                                    onClicked: {
+                                        globalSession.createConstraint1()
+                                    }
                                 }
-                            }
-                            
-                            Button {
-                                text: "共点约束"
-                                Layout.fillWidth: true
-                                onClicked: {
-                                    globalSession.createGongdianConstraint()
+                                
+                                Button {
+                                    text: "共点约束"
+                                    Layout.fillWidth: true
+                                    onClicked: {
+                                        globalSession.createGongdianConstraint()
+                                    }
                                 }
-                            }
-                            
-                            Button {
-                                text: "平行约束"
-                                Layout.fillWidth: true
-                                enabled: drawingArea !== null
-                                onClicked: {
-                                    globalSession.createParallelConstraint()
+                                
+                                Button {
+                                    text: "平行约束"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        globalSession.createParallelConstraint()
+                                    }
                                 }
-                            }
 
-                            Button {
-                                text: "点在线上约束"
-                                Layout.fillWidth: true
-                                enabled: drawingArea !== null
-                                onClicked: {
-                                    globalSession.createPtInLineConstraint()
+                                Button {
+                                    text: "点在线上约束"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        globalSession.createPtInLineConstraint()
+                                    }
                                 }
-                            }
 
-                            Button {
-                                text: "点在圆上约束"
-                                Layout.fillWidth: true
-                                enabled: drawingArea !== null
-                                onClicked: {
-                                    globalSession.createPtOnCircleConstraint()
+                                Button {
+                                    text: "点在圆上约束"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        globalSession.createPtOnCircleConstraint()
+                                    }
+                                }
+
+                                Button {
+                                    text: "竖直约束"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        globalSession.createVerticalConstraint()
+                                    }
                                 }
                             }
                             
-                            Rectangle {
+                            // 第二列按钮
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                height: 1
-                                color: "#e0e0e0"
-                            }
-                            
-                            Button {
-                                text: "清空所有"
-                                Layout.fillWidth: true
-                                onClicked: {
-                                    globalSession.clear()
-                                    statusText.text = "已清空"
+                                spacing: 8
+                                
+                                Button {
+                                    text: "垂直约束"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        globalSession.createPerpendicularConstraint()
+                                        statusText.text = "垂直约束已创建"
+                                        statusText.color = "green"
+                                    }
+                                }
+                                
+                                Button {
+                                    text: "水平约束"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        globalSession.createHorizontalConstraint()
+                                        statusText.text = "水平约束已创建"
+                                        statusText.color = "green"
+                                    }
+                                }
+                                
+                                Button {
+                                    text: "角度约束"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        // TODO: 实现角度约束
+                                        statusText.text = "角度约束功能待实现"
+                                        statusText.color = "orange"
+                                    }
+                                }
+
+                                Button {
+                                    text: "相切约束"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        // TODO: 实现相切约束
+                                        statusText.text = "相切约束功能待实现"
+                                        statusText.color = "orange"
+                                    }
+                                }
+
+                                Button {
+                                    text: "对称约束"
+                                    Layout.fillWidth: true
+                                    enabled: drawingArea !== null
+                                    onClicked: {
+                                        // TODO: 实现对称约束
+                                        statusText.text = "对称约束功能待实现"
+                                        statusText.color = "orange"
+                                    }
                                 }
                             }
+                        }
+                    }
+                    
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: "#e0e0e0"
+                    }
+                    
+                    Button {
+                        text: "清空所有"
+                        Layout.fillWidth: true
+                        onClicked: {
+                            globalSession.clear()
+                            statusText.text = "已清空"
                         }
                     }
                     
