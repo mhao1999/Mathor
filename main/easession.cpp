@@ -59,6 +59,31 @@ int EaSession::addLine(int startPointId, int endPointId)
     return lineId;
 }
 
+int EaSession::addCircle(int centerPointId, double radius)
+{
+    // 验证圆心是否存在
+    EaPoint* centerPoint = getPoint(centerPointId);
+    
+    if (!centerPoint) {
+        qWarning() << "EaSession: Cannot create circle - invalid center point ID:" << centerPointId;
+        return -1;
+    }
+    
+    auto circle = std::make_shared<EaCircle>();
+    circle->setCenter(centerPoint);
+    circle->setRadius(radius);
+    circle->setId(m_nextCircleId);
+    
+    m_circles.push_back(circle);
+    int circleId = m_nextCircleId++;
+    
+    emit circleAdded(circleId, centerPointId, radius);
+    emit geometryChanged();
+    
+    qDebug() << "EaSession: Added circle" << circleId << "with center point" << centerPointId << "radius" << radius;
+    return circleId;
+}
+
 void EaSession::removePoint(int pointId)
 {
     // 移除点
@@ -97,15 +122,33 @@ void EaSession::removeLine(int lineId)
     }
 }
 
+void EaSession::removeCircle(int circleId)
+{
+    auto it = std::find_if(m_circles.begin(), m_circles.end(),
+                          [circleId](const std::shared_ptr<EaCircle>& circle) {
+                              return circle->getId() == circleId;
+                          });
+    
+    if (it != m_circles.end()) {
+        m_circles.erase(it);
+        emit circleRemoved(circleId);
+        emit geometryChanged();
+        qDebug() << "EaSession: Removed circle" << circleId;
+    }
+}
+
 void EaSession::clear()
 {
     m_points.clear();
     m_lines.clear();
+    m_circles.clear();
     m_constraints.clear();
     m_selectedPoints.clear();
     m_selectedLines.clear();
+    m_selectedCircles.clear();
     m_nextPointId = 1;
     m_nextLineId = 1;
+    m_nextCircleId = 1;
     m_nextConstraintId = 1;
     
     emit geometryChanged();
@@ -201,6 +244,16 @@ EaLine* EaSession::getLine(int lineId)
     return (it != m_lines.end()) ? it->get() : nullptr;
 }
 
+EaCircle* EaSession::getCircle(int circleId)
+{
+    auto it = std::find_if(m_circles.begin(), m_circles.end(),
+                          [circleId](const std::shared_ptr<EaCircle>& circle) {
+                              return circle->getId() == circleId;
+                          });
+    
+    return (it != m_circles.end()) ? it->get() : nullptr;
+}
+
 // ============ 更新几何元素 ============
 
 void EaSession::updatePointPosition(int pointId, double x, double y, double z)
@@ -250,11 +303,29 @@ void EaSession::selectLine(int lineId, bool selected)
     }
 }
 
+void EaSession::selectCircle(int circleId, bool selected)
+{
+    if (selected) {
+        auto it = std::find(m_selectedCircles.begin(), m_selectedCircles.end(), circleId);
+        if (it == m_selectedCircles.end()) {
+            m_selectedCircles.push_back(circleId);
+            emit selectionChanged();
+        }
+    } else {
+        auto it = std::find(m_selectedCircles.begin(), m_selectedCircles.end(), circleId);
+        if (it != m_selectedCircles.end()) {
+            m_selectedCircles.erase(it);
+            emit selectionChanged();
+        }
+    }
+}
+
 void EaSession::clearSelection()
 {
-    if (!m_selectedPoints.empty() || !m_selectedLines.empty()) {
+    if (!m_selectedPoints.empty() || !m_selectedLines.empty() || !m_selectedCircles.empty()) {
         m_selectedPoints.clear();
         m_selectedLines.clear();
+        m_selectedCircles.clear();
         emit selectionChanged();
     }
 }
@@ -267,6 +338,11 @@ std::vector<int> EaSession::getSelectedPoints() const
 std::vector<int> EaSession::getSelectedLines() const
 {
     return m_selectedLines;
+}
+
+std::vector<int> EaSession::getSelectedCircles() const
+{
+    return m_selectedCircles;
 }
 
 // ============ 约束管理 ============
@@ -369,6 +445,29 @@ void EaSession::addPtOnLineConstraint(int pointId, int lineId)
              << "for point" << pointId << "on line" << lineId;
 }
 
+void EaSession::addPtOnCircleConstraint(int pointId, int centerPointId, double radius)
+{
+    // 验证点是否存在
+    EaPoint* point = getPoint(pointId);
+    EaPoint* centerPoint = getPoint(centerPointId);
+    
+    if (!point || !centerPoint) {
+        qWarning() << "EaSession: Cannot add point on circle constraint - invalid point IDs:" << pointId << centerPointId;
+        return;
+    }
+    
+    // 添加点在圆上约束
+    Constraint ptOnCircleConstraint(m_nextConstraintId++, "pt_on_circle");
+    ptOnCircleConstraint.data["point"] = pointId;
+    ptOnCircleConstraint.data["center"] = centerPointId;
+    ptOnCircleConstraint.data["radius"] = radius;
+    
+    m_constraints.push_back(ptOnCircleConstraint);
+    
+    qDebug() << "EaSession: Added point on circle constraint" << ptOnCircleConstraint.id 
+             << "for point" << pointId << "on circle with center" << centerPointId << "radius" << radius;
+}
+
 void EaSession::createPtInLineConstraint()
 {
     this->clear();
@@ -390,6 +489,30 @@ void EaSession::createPtInLineConstraint()
     
     qDebug() << "EaSession: Created point on line constraint with points" << pt1 << pt2 << pt3;
     qDebug() << "EaSession: Created line" << line1 << "with point" << pt3 << "on it";
+}
+
+void EaSession::createPtOnCircleConstraint()
+{
+    this->clear();
+    
+    // 创建圆心点
+    int centerPt = this->addPoint(100.0, 100.0);  // 圆心位置
+    
+    // 创建圆上的点
+    int ptOnCircle = this->addPoint(130.0, 100.0); // 圆上的点，初始在圆心右侧30单位处
+    
+    // 创建圆实体用于界面显示
+    int circleId = this->addCircle(centerPt, 130.0); // 半径30.0
+    
+    // 为圆心添加固定约束，使圆保持稳定
+    this->createFixPointConstraint(centerPt);
+    
+    // 添加点在圆上约束
+    this->addPtOnCircleConstraint(ptOnCircle, centerPt, 130.0); // 半径30.0
+    
+    qDebug() << "EaSession: Created point on circle constraint with center point" << centerPt 
+             << "and point on circle" << ptOnCircle << "with radius 130.0";
+    qDebug() << "EaSession: Created circle" << circleId << "for display";
 }
 
 void EaSession::removeConstraint(int constraintId)

@@ -239,6 +239,15 @@ Window {
                                     globalSession.createPtInLineConstraint()
                                 }
                             }
+
+                            Button {
+                                text: "点在圆上约束"
+                                Layout.fillWidth: true
+                                enabled: drawingArea !== null
+                                onClicked: {
+                                    globalSession.createPtOnCircleConstraint()
+                                }
+                            }
                             
                             Rectangle {
                                 Layout.fillWidth: true

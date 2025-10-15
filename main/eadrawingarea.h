@@ -81,6 +81,7 @@ private:
     void drawGrid(QPainter *painter);
     void drawPoints(QPainter *painter);
     void drawLines(QPainter *painter);
+    void drawCircles(QPainter *painter);
     void drawCoordinateAxes(QPainter *painter);
     
     // 交互辅助方法

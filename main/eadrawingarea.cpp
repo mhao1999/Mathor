@@ -119,13 +119,14 @@ void EaDrawingArea::paint(QPainter *painter)
     // 背景
     painter->fillRect(0, 0, width(), height(), Qt::white);
     
-    // 绘制顺序：网格 -> 坐标轴 -> 线 -> 点
+    // 绘制顺序：网格 -> 坐标轴 -> 线 -> 圆 -> 点
     if (m_showGrid) {
         drawGrid(painter);
     }
     
     drawCoordinateAxes(painter);
     drawLines(painter);
+    drawCircles(painter);
     drawPoints(painter);
 }
 
@@ -235,6 +236,47 @@ void EaDrawingArea::drawLines(QPainter *painter)
         
         // 绘制线段
         painter->drawLine(startPos, endPos);
+    }
+    
+    painter->restore();
+}
+
+void EaDrawingArea::drawCircles(QPainter *painter)
+{
+    painter->save();
+    
+    const auto& circles = m_session->getCircles();
+    for (const auto& circle : circles) {
+        EaPoint* centerPoint = circle->getCenter();
+        if (!centerPoint) continue;
+        
+        QPointF centerPos = worldToScreen(centerPoint->pos().x(), centerPoint->pos().y());
+        double radius = circle->getRadius() * m_zoomLevel; // 根据缩放级别调整半径
+        
+        // 选择颜色和线宽
+        QColor color = circle->isSelected() ? QColor(244, 67, 54) : QColor(33, 150, 243); // 红色或蓝色
+        double width = circle->isSelected() ? 3.0 : 2.0;
+        
+        QPen circlePen(color, width);
+        painter->setPen(circlePen);
+        painter->setBrush(Qt::NoBrush); // 圆不填充
+        
+        // 绘制圆
+        painter->drawEllipse(centerPos, radius, radius);
+        
+        // 如果圆被选中，绘制圆心点
+        if (circle->isSelected()) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QColor(244, 67, 54)); // 红色填充
+            painter->drawEllipse(centerPos, 4, 4);
+        }
+        
+        // 绘制圆ID标签
+        painter->setPen(Qt::black);
+        QFont font = painter->font();
+        font.setPixelSize(10);
+        painter->setFont(font);
+        painter->drawText(centerPos + QPointF(radius + 5, -5), QString("C%1").arg(circle->getId()));
     }
     
     painter->restore();

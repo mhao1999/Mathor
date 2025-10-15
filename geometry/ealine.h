@@ -1,7 +1,6 @@
 ﻿#ifndef EALINE_H
 #define EALINE_H
 
-#include "eashape.h"
 #include "eapoint.h"
 
 class EaLine : public EaShape

@@ -1,6 +1,7 @@
 ﻿#include "eageosolver.h"
 #include "easession.h"
 #include <QDebug>
+#include <set>
 
 GeometrySolver::GeometrySolver(QObject *parent)
     : QObject(parent)
@@ -175,6 +176,7 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     // 创建所有点，并记录参数索引
     std::map<int, int> pointToEntity; // 点ID到实体ID的映射
     std::map<int, int> lineToEntity;  // 线段ID到实体ID的映射
+    std::map<int, int> centerToCircleEntity; // 圆心点ID到圆实体ID的映射
     // 清空之前的映射
     m_pointToParamX.clear();
     m_pointToParamY.clear();
@@ -182,6 +184,7 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     int paramIndex = 10;  // 从10开始，避免与工作平面参数ID冲突
     int entityIndex = 300;
     
+    // 创建所有点
     for (const auto& it : pointPositions) {
         int pointId = std::stoi(it.first);
         const auto& pos = it.second;
@@ -210,7 +213,7 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
         pointToEntity[pointId] = entityIndex++;
         
         qDebug() << "GeometrySolver: Created point" << pointId << "at" << x << y 
-                 << "with params" << paramXIndex << paramYIndex;
+                 << "with params" << paramXIndex << paramYIndex << "in group" << g;
     }
     
     // 创建线段实体
@@ -236,7 +239,7 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
         }
     }
     
-    // 添加约束
+    // 添加约束（包括创建圆实体）
     qDebug() << "GeometrySolver: Adding constraints, total constraints to add:" << constraints.size();
     for (const Constraint& constraint : constraints) {
         std::string type = constraint.type;
@@ -277,7 +280,7 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
             int pointId = std::any_cast<int>(constraint.data.at("point"));
             
             if (pointToEntity.find(pointId) != pointToEntity.end()) {
-                // 添加固定点约束 - 使用拖拽约束
+                // 添加固定点约束 - 使用WHERE_DRAGGED约束来固定点
                 int constraintId = m_sys.constraints + 1;
                 Slvs_Constraint constraint = Slvs_MakeConstraint(
                     constraintId, g,
@@ -352,30 +355,86 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
                 qWarning() << "GeometrySolver: Cannot add point on line constraint - missing point or line entities" << pointId << lineId;
             }
         }
+        else if (type == "pt_on_circle") {
+            int pointId = std::any_cast<int>(constraint.data.at("point"));
+            int centerPointId = std::any_cast<int>(constraint.data.at("center"));
+            double radius = std::any_cast<double>(constraint.data.at("radius"));
+            
+            // 首先检查是否需要创建圆实体
+            if (centerToCircleEntity.find(centerPointId) == centerToCircleEntity.end() &&
+                pointToEntity.find(centerPointId) != pointToEntity.end()) {
+                
+                // 创建半径距离实体
+                int radiusParamIndex = paramIndex++;
+                m_sys.param[m_sys.params++] = Slvs_MakeParam(radiusParamIndex, g, radius);
+                
+                int radiusEntityIndex = entityIndex++;
+                m_sys.entity[m_sys.entities++] = Slvs_MakeDistance(radiusEntityIndex, g, 200, radiusParamIndex);
+                
+                // 创建圆实体
+                int circleEntityIndex = entityIndex++;
+                m_sys.entity[m_sys.entities++] = Slvs_MakeCircle(circleEntityIndex, g, 200,
+                                                                 pointToEntity[centerPointId], 102, radiusEntityIndex);
+                
+                // 使用圆心点ID作为键
+                centerToCircleEntity[centerPointId] = circleEntityIndex;
+                
+                // 添加直径约束来固定圆的半径
+                int diameterConstraintId = m_sys.constraints + 1;
+                Slvs_Constraint diameterConstraint = Slvs_MakeConstraint(
+                    diameterConstraintId, g,
+                    SLVS_C_DIAMETER,
+                    200,
+                    radius * 2.0,  // 直径 = 半径 * 2
+                    0, 0, circleEntityIndex, 0);
+                diameterConstraint.entityC = 0;
+                diameterConstraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = diameterConstraint;
+                
+                qDebug() << "GeometrySolver: Created circle with center point" << centerPointId 
+                         << "radius" << radius << "entity" << circleEntityIndex;
+                qDebug() << "GeometrySolver: Added diameter constraint" << diameterConstraintId 
+                         << "for circle" << circleEntityIndex << "diameter" << (radius * 2.0);
+            } else if (centerToCircleEntity.find(centerPointId) != centerToCircleEntity.end()) {
+                qDebug() << "GeometrySolver: Circle already exists for center point" << centerPointId;
+            } else {
+                qWarning() << "GeometrySolver: Cannot create circle - missing center point" << centerPointId;
+            }
+            
+            // 然后添加点在圆上约束
+            if (pointToEntity.find(pointId) != pointToEntity.end() && 
+                centerToCircleEntity.find(centerPointId) != centerToCircleEntity.end()) {
+                
+                // 添加点在圆上约束
+                int constraintId = m_sys.constraints + 1;
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_PT_ON_CIRCLE,
+                    200,
+                    0.0,
+                    pointToEntity[pointId], 0, centerToCircleEntity[centerPointId], 0);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
+                
+                qDebug() << "GeometrySolver: Added point on circle constraint" << constraintId
+                         << "for point" << pointId << "on circle with center" << centerPointId 
+                         << "entities" << pointToEntity[pointId] << centerToCircleEntity[centerPointId];
+            } else {
+                qWarning() << "GeometrySolver: Cannot add point on circle constraint - missing point or circle entities" << pointId << centerPointId;
+            }
+        }
     }
     
     qDebug() << "GeometrySolver: Total constraints added:" << m_sys.constraints;
     
-    // 不使用dragged数组，而是通过约束来固定点1
+    // 不使用dragged数组，直接进行约束求解
     // 清空dragged数组
     for (int i = 0; i < 4; i++) {
         m_sys.dragged[i] = 0;
     }
     
-    // 使用dragged数组来指定被拖拽的参数
-    // dragged数组中的参数是会被拖拽的参数，不是被固定的参数
-    if (m_pointToParamX.find(draggedPointId) != m_pointToParamX.end() && m_pointToParamY.find(draggedPointId) != m_pointToParamY.end()) {
-        m_sys.dragged[0] = m_pointToParamX[draggedPointId];  // 拖拽点的X参数
-        m_sys.dragged[1] = m_pointToParamY[draggedPointId];  // 拖拽点的Y参数
-        m_sys.dragged[2] = 0;  // 未使用
-        m_sys.dragged[3] = 0;  // 未使用
-        
-        qDebug() << "GeometrySolver: Dragged point" << draggedPointId << "parameters:" 
-                 << m_pointToParamX[draggedPointId] << m_pointToParamY[draggedPointId];
-    }
-    
-    qDebug() << "GeometrySolver: Using dragged array to specify dragged parameters";
-    qDebug() << "GeometrySolver: Point1 should be fixed, point2 should move";
+    qDebug() << "GeometrySolver: Not using dragged array - relying on constraints only";
     
     // 输出每个点的参数ID
     for (auto it = m_pointToParamX.begin(); it != m_pointToParamX.end(); ++it) {
