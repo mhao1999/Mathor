@@ -13,7 +13,7 @@ Window {
     width: 1200
     height: 800
     visible: true
-    title: "Mathor - 几何绘制区域演示 (QQuickPaintedItem)"
+    title: "Mathor - 几何绘制区域演示"
     
     // 几何求解器
     GeometrySolver {
@@ -230,6 +230,15 @@ Window {
                                     globalSession.createParallelConstraint()
                                 }
                             }
+
+                            Button {
+                                text: "点在线上约束"
+                                Layout.fillWidth: true
+                                enabled: drawingArea !== null
+                                onClicked: {
+                                    globalSession.createPtInLineConstraint()
+                                }
+                            }
                             
                             Rectangle {
                                 Layout.fillWidth: true
@@ -276,25 +285,31 @@ Window {
                             // }
                             
                             Button {
-                                text: "应用约束"
+                                text: "测试拖拽约束"
                                 Layout.fillWidth: true
                                 highlighted: true
                                 onClicked: {
-                                    // 使用通用的solveDragConstraint方法
-                                    // 这里需要指定要拖拽的点ID和新位置
-                                    // 由于这是演示，我们使用点2作为拖拽点
-                                    var draggedPointId = 2
-                                    var newX = 80.0  // 新的X坐标
-                                    var newY = 80.0  // 新的Y坐标
+                                    // 根据当前约束类型测试不同的拖拽场景
+                                    var points = globalSession.getPoints()
+                                    if (points.length === 0) {
+                                        statusText.text = "请先创建约束场景"
+                                        statusText.color = "orange"
+                                        return
+                                    }
+                                    
+                                    // 测试拖拽第一个点
+                                    var draggedPointId = 1
+                                    var newX = 100.0  // 新的X坐标
+                                    var newY = 100.0  // 新的Y坐标
                                     
                                     // 调用EaSession的solveDragConstraint方法
                                     var success = globalSession.solveDragConstraint(draggedPointId, newX, newY)
                                     
                                     if (success) {
-                                        statusText.text = "约束求解成功!"
+                                        statusText.text = "拖拽约束求解成功! 点" + draggedPointId + "移动到(" + newX + "," + newY + ")"
                                         statusText.color = "green"
                                     } else {
-                                        statusText.text = "约束求解失败"
+                                        statusText.text = "拖拽约束求解失败"
                                         statusText.color = "red"
                                     }
                                 }

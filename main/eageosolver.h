@@ -39,7 +39,8 @@ public:
     // 拖拽约束求解 - 拖拽一个点，其他点根据约束调整
     Q_INVOKABLE bool solveDragConstraint(int draggedPointId, double newX, double newY,
                                         const std::map<std::string, std::map<std::string, std::any>>& pointPositions,
-                                        const std::vector<Constraint>& constraints);
+                                        const std::vector<Constraint>& constraints,
+                                        const std::map<std::string, std::map<std::string, std::any>>& lineInfo = {});
 
     // 获取求解后的点坐标
     Q_INVOKABLE QVariantMap getSolvedPoints();

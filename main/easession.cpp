@@ -152,7 +152,31 @@ void EaSession::createGongdianConstraint()
 
 void EaSession::createParallelConstraint()
 {
-
+    this->clear();
+    
+    // 创建4个点，构成两条线段
+    // 第一条线段：(点1，点2)
+    int pt1 = this->addPoint(50.0, 50.0);   // 线段1起点
+    int pt2 = this->addPoint(150.0, 100.0); // 线段1终点
+    
+    // 第二条线段：(点3，点4)
+    int pt3 = this->addPoint(50.0, 150.0);  // 线段2起点
+    int pt4 = this->addPoint(150.0, 200.0); // 线段2终点
+    
+    // 创建两条线段
+    int line1 = this->addLine(pt1, pt2);    // 线段1
+    int line2 = this->addLine(pt3, pt4);    // 线段2
+    
+    this->createFixPointConstraint(pt1);
+    // this->createFixPointConstraint(pt2);
+    this->createFixPointConstraint(pt3);
+    this->createFixPointConstraint(pt4);
+    
+    // 为两条线段添加平行约束
+    this->addParallelConstraint(line1, line2);
+    
+    qDebug() << "EaSession: Created parallel constraint with points" << pt1 << pt2 << pt3 << pt4;
+    qDebug() << "EaSession: Created lines" << line1 << "and" << line2 << "with parallel constraint";
 }
 
 // ============ 获取几何元素 ============
@@ -300,6 +324,74 @@ void EaSession::createFixPointConstraint(int pointId)
              << "for point" << pointId;
 }
 
+
+void EaSession::addParallelConstraint(int line1Id, int line2Id)
+{
+    // 验证线段是否存在
+    EaLine* line1 = getLine(line1Id);
+    EaLine* line2 = getLine(line2Id);
+    
+    if (!line1 || !line2) {
+        qWarning() << "EaSession: Cannot add parallel constraint - invalid line IDs:" << line1Id << line2Id;
+        return;
+    }
+    
+    // 添加平行约束
+    Constraint parallelConstraint(m_nextConstraintId++, "parallel");
+    parallelConstraint.data["line1"] = line1Id;
+    parallelConstraint.data["line2"] = line2Id;
+    
+    m_constraints.push_back(parallelConstraint);
+    
+    qDebug() << "EaSession: Added parallel constraint" << parallelConstraint.id 
+             << "between lines" << line1Id << "and" << line2Id;
+}
+
+void EaSession::addPtOnLineConstraint(int pointId, int lineId)
+{
+    // 验证点和线段是否存在
+    EaPoint* point = getPoint(pointId);
+    EaLine* line = getLine(lineId);
+    
+    if (!point || !line) {
+        qWarning() << "EaSession: Cannot add point on line constraint - invalid point or line IDs:" << pointId << lineId;
+        return;
+    }
+    
+    // 添加点在线上约束
+    Constraint ptOnLineConstraint(m_nextConstraintId++, "pt_on_line");
+    ptOnLineConstraint.data["point"] = pointId;
+    ptOnLineConstraint.data["line"] = lineId;
+    
+    m_constraints.push_back(ptOnLineConstraint);
+    
+    qDebug() << "EaSession: Added point on line constraint" << ptOnLineConstraint.id 
+             << "for point" << pointId << "on line" << lineId;
+}
+
+void EaSession::createPtInLineConstraint()
+{
+    this->clear();
+    
+    // 创建3个点
+    int pt1 = this->addPoint(50.0, 50.0);   // 线段起点
+    int pt2 = this->addPoint(150.0, 100.0); // 线段终点
+    int pt3 = this->addPoint(100.0, 75.0);  // 在线段上的点
+    
+    // 创建线段（点1，点2）
+    int line1 = this->addLine(pt1, pt2);
+    
+    // 为点1和点2添加固定约束，使线段保持稳定
+    this->createFixPointConstraint(pt1);
+    this->createFixPointConstraint(pt2);
+    
+    // 为点3添加点在线上约束
+    this->addPtOnLineConstraint(pt3, line1);
+    
+    qDebug() << "EaSession: Created point on line constraint with points" << pt1 << pt2 << pt3;
+    qDebug() << "EaSession: Created line" << line1 << "with point" << pt3 << "on it";
+}
+
 void EaSession::removeConstraint(int constraintId)
 {
     auto it = std::find_if(m_constraints.begin(), m_constraints.end(),
@@ -351,9 +443,18 @@ bool EaSession::solveDragConstraint(int draggedPointId, double newX, double newY
         qDebug() << "EaSession: Point" << point->getId() << "at" << point->pos().x() << point->pos().y() << point->pos().z();
     }
     
+    // 构建线段信息映射
+    std::map<std::string, std::map<std::string, std::any>> lineInfo;
+    for (const auto& line : m_lines) {
+        std::map<std::string, std::any> lineData;
+        lineData["startPoint"] = line->getStartPointId();
+        lineData["endPoint"] = line->getEndPointId();
+        lineInfo[std::to_string(line->getId())] = lineData;
+    }
+    
     // 调用GeometrySolver进行求解
     bool success = m_geometrySolver->solveDragConstraint(draggedPointId, newX, newY, 
-                                                        pointPositions, m_constraints);
+                                                        pointPositions, m_constraints, lineInfo);
     
     if (success) {
         // 更新点的位置 - 使用动态方法处理所有点

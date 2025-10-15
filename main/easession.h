@@ -74,9 +74,13 @@ public slots:
     int addLine(int startPointId, int endPointId);
     void addDistanceConstraint(int point1Id, int point2Id, double distance);
     void createFixPointConstraint(int pointId);
+    void addParallelConstraint(int line1Id, int line2Id);
+    void addPtOnLineConstraint(int pointId, int lineId);
     void clear();
     void createConstraint1();
     void createGongdianConstraint();
+    void createParallelConstraint();
+    void createPtInLineConstraint();
     // 更新几何元素
     void updatePointPosition(int pointId, double x, double y, double z = 0.0);
 

@@ -139,7 +139,8 @@ bool GeometrySolver::solveSimple2DDistance(double x1, double y1,
 
 bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double newY,
                                         const std::map<std::string, std::map<std::string, std::any>>& pointPositions,
-                                        const std::vector<Constraint>& constraints)
+                                        const std::vector<Constraint>& constraints,
+                                        const std::map<std::string, std::map<std::string, std::any>>& lineInfo)
 {
     qDebug() << "GeometrySolver: solveDragConstraint called for point" << draggedPointId 
              << "to position" << newX << newY;
@@ -173,11 +174,12 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
     
     // 创建所有点，并记录参数索引
     std::map<int, int> pointToEntity; // 点ID到实体ID的映射
+    std::map<int, int> lineToEntity;  // 线段ID到实体ID的映射
     // 清空之前的映射
     m_pointToParamX.clear();
     m_pointToParamY.clear();
     
-    int paramIndex = 10;
+    int paramIndex = 10;  // 从10开始，避免与工作平面参数ID冲突
     int entityIndex = 300;
     
     for (const auto& it : pointPositions) {
@@ -211,6 +213,29 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
                  << "with params" << paramXIndex << paramYIndex;
     }
     
+    // 创建线段实体
+    for (const auto& it : lineInfo) {
+        int lineId = std::stoi(it.first);
+        const auto& lineData = it.second;
+        int startPointId = std::any_cast<int>(lineData.at("startPoint"));
+        int endPointId = std::any_cast<int>(lineData.at("endPoint"));
+        
+        if (pointToEntity.find(startPointId) != pointToEntity.end() && 
+            pointToEntity.find(endPointId) != pointToEntity.end()) {
+            
+            // 创建线段实体
+            m_sys.entity[m_sys.entities++] = Slvs_MakeLineSegment(entityIndex, g, 200, 
+                                                                  pointToEntity[startPointId], 
+                                                                  pointToEntity[endPointId]);
+            lineToEntity[lineId] = entityIndex++;
+            
+            qDebug() << "GeometrySolver: Created line" << lineId << "from point" << startPointId 
+                     << "to point" << endPointId << "with entity" << lineToEntity[lineId];
+        } else {
+            qWarning() << "GeometrySolver: Cannot create line" << lineId << "- missing points" << startPointId << endPointId;
+        }
+    }
+    
     // 添加约束
     qDebug() << "GeometrySolver: Adding constraints, total constraints to add:" << constraints.size();
     for (const Constraint& constraint : constraints) {
@@ -230,12 +255,15 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
             
             if (pointToEntity.find(point1Id) != pointToEntity.end() && pointToEntity.find(point2Id) != pointToEntity.end()) {
                 int constraintId = m_sys.constraints + 1;
-                m_sys.constraint[m_sys.constraints++] = Slvs_MakeConstraint(
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
                     constraintId, g,
                     SLVS_C_PT_PT_DISTANCE,
                     200,
                     distance,
                     pointToEntity[point1Id], pointToEntity[point2Id], 0, 0);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
                 
                 qDebug() << "GeometrySolver: Added distance constraint" << constraintId 
                          << "between points" << point1Id << "and" << point2Id 
@@ -251,17 +279,77 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
             if (pointToEntity.find(pointId) != pointToEntity.end()) {
                 // 添加固定点约束 - 使用拖拽约束
                 int constraintId = m_sys.constraints + 1;
-                m_sys.constraint[m_sys.constraints++] = Slvs_MakeConstraint(
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
                     constraintId, g,
                     SLVS_C_WHERE_DRAGGED,
                     200,
                     0.0,
                     pointToEntity[pointId], 0, 0, 0);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
                 
                 qDebug() << "GeometrySolver: Added fix point constraint" << constraintId
                          << "for point" << pointId << "entity" << pointToEntity[pointId];
             } else {
                 qWarning() << "GeometrySolver: Cannot add fix point constraint - point" << pointId << "not found";
+            }
+        }
+        else if (type == "drag_point") {
+            // 拖拽约束现在通过dragged数组处理，不需要添加SLVS_C_WHERE_DRAGGED约束
+            qDebug() << "GeometrySolver: Skipping drag_point constraint - handled by dragged array";
+        }
+        else if (type == "parallel") {
+            int line1Id = std::any_cast<int>(constraint.data.at("line1"));
+            int line2Id = std::any_cast<int>(constraint.data.at("line2"));
+            
+            if (lineToEntity.find(line1Id) != lineToEntity.end() && 
+                lineToEntity.find(line2Id) != lineToEntity.end()) {
+                
+                // 添加平行约束
+                int constraintId = m_sys.constraints + 1;
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_PARALLEL,
+                    200,
+                    0.0,
+                    0, 0,
+                    lineToEntity[line1Id], lineToEntity[line2Id]);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
+                
+                qDebug() << "GeometrySolver: Added parallel constraint" << constraintId
+                         << "between lines" << line1Id << "and" << line2Id 
+                         << "entities" << lineToEntity[line1Id] << lineToEntity[line2Id];
+            } else {
+                qWarning() << "GeometrySolver: Cannot add parallel constraint - missing line entities" << line1Id << line2Id;
+            }
+        }
+        else if (type == "pt_on_line") {
+            int pointId = std::any_cast<int>(constraint.data.at("point"));
+            int lineId = std::any_cast<int>(constraint.data.at("line"));
+            
+            if (pointToEntity.find(pointId) != pointToEntity.end() && 
+                lineToEntity.find(lineId) != lineToEntity.end()) {
+                
+                // 添加点在线上约束
+                int constraintId = m_sys.constraints + 1;
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_PT_ON_LINE,
+                    200,
+                    0.0,
+                    pointToEntity[pointId], 0, lineToEntity[lineId], 0);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
+                
+                qDebug() << "GeometrySolver: Added point on line constraint" << constraintId
+                         << "for point" << pointId << "on line" << lineId 
+                         << "entities" << pointToEntity[pointId] << lineToEntity[lineId];
+            } else {
+                qWarning() << "GeometrySolver: Cannot add point on line constraint - missing point or line entities" << pointId << lineId;
             }
         }
     }
