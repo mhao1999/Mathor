@@ -677,19 +677,14 @@ void ConstraintBase::GenerateEquations(IdList<Equation,hEquation> *l,
             EntityBase *arc  = SK.GetEntity(entityA);
             EntityBase *line = SK.GetEntity(entityB);
 
-            ExprVector ac = SK.GetEntity(arc->point[other ? 2 : 1])->PointGetExprs();
+            ExprVector ac = SK.GetEntity(arc->point[0])->PointGetExprs();
             ExprVector ap =
-                SK.GetEntity(arc->point[other ? 1 : 2])->PointGetExprs();
-            //ExprVector ptCen = SK.GetEntity(arc->point[other ? 1 : 2])->PointGetExprs();
+                SK.GetEntity(arc->point[other ? 2 : 1])->PointGetExprs();
 
             ExprVector ld = line->VectorGetExprs();
-            Expr* r = arc->CircleGetRadiusExpr();
-            Expr* dis = PointLineDistance(workplane, arc->point[0], entityB);
-           AddEq(l, dis->Minus(r), 0);
+
             // The line is perpendicular to the radius
-            AddEq(l, ld.Dot(ac.Minus(ap)), 1);
-  
-            
+            AddEq(l, ld.Dot(ac.Minus(ap)), 0);
             return;
         }
 

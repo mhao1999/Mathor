@@ -650,6 +650,35 @@ bool GeometrySolver::solveDragConstraint(int draggedPointId, double newX, double
                 qWarning() << "GeometrySolver: Cannot add point on circle constraint - missing point or circle entities" << pointId << centerPointId;
             }
         }
+        else if (type == "symmetric_line") {
+            int point1Id = std::any_cast<int>(constraint.data.at("point1"));
+            int point2Id = std::any_cast<int>(constraint.data.at("point2"));
+            int lineId = std::any_cast<int>(constraint.data.at("line"));
+            
+            if (pointToEntity.find(point1Id) != pointToEntity.end() && 
+                pointToEntity.find(point2Id) != pointToEntity.end() && 
+                lineToEntity.find(lineId) != lineToEntity.end()) {
+                
+                // 添加关于直线对称的约束
+                int constraintId = m_sys.constraints + 1;
+                Slvs_Constraint constraint = Slvs_MakeConstraint(
+                    constraintId, g,
+                    SLVS_C_SYMMETRIC_LINE,
+                    200,
+                    0.0,
+                    pointToEntity[point1Id], pointToEntity[point2Id], lineToEntity[lineId], 0);
+                constraint.entityC = 0;
+                constraint.entityD = 0;
+                m_sys.constraint[m_sys.constraints++] = constraint;
+                
+                qDebug() << "GeometrySolver: Added symmetric line constraint" << constraintId
+                         << "for points" << point1Id << "and" << point2Id << "about line" << lineId 
+                         << "entities" << pointToEntity[point1Id] << pointToEntity[point2Id] << lineToEntity[lineId];
+            } else {
+                qWarning() << "GeometrySolver: Cannot add symmetric line constraint - missing point or line entities" 
+                           << "point1" << point1Id << "point2" << point2Id << "line" << lineId;
+            }
+        }
     }
     
     qDebug() << "GeometrySolver: Total constraints added:" << m_sys.constraints;

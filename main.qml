@@ -318,7 +318,7 @@ Window {
                                     Layout.fillWidth: true
                                     enabled: drawingArea !== null
                                     onClicked: {
-                                        // TODO: 实现对称约束
+                                        globalSession.createSymmConstraint()
                                         statusText.text = "对称约束功能待实现"
                                         statusText.color = "orange"
                                     }

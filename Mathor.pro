@@ -71,16 +71,16 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../EaMagic/build/Desktop_Qt_5_15_2_MSVC2019_64bit-Release/release/ -lEaMagic
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../EaMagic/build/Desktop_Qt_5_15_2_MSVC2019_64bit-Debug/debug/ -lEaMagic
-else:unix: LIBS += -L$$PWD/../../build-EaMagic-Desktop_Qt_5_15_5_shared_MinGW_w64_MINGW32_MSYS2-Release/ -lEaMagic.dll
+# win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../EaMagic/build/Desktop_Qt_5_15_2_MSVC2019_64bit-Release/release/ -lEaMagic
+# else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../EaMagic/build/Desktop_Qt_5_15_2_MSVC2019_64bit-Debug/debug/ -lEaMagic
+# else:unix: LIBS += -L$$PWD/../../build-EaMagic-Desktop_Qt_5_15_5_shared_MinGW_w64_MINGW32_MSYS2-Release/ -lEaMagic.dll
 
-INCLUDEPATH += $$PWD/../EaMagic
-DEPENDPATH += $$PWD/../EaMagic
+# INCLUDEPATH += $$PWD/../EaMagic
+# DEPENDPATH += $$PWD/../EaMagic
 
-win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../EaTrivial/build/Desktop_Qt_5_15_2_MSVC2019_64bit-Release/release/ -lEaTrivial
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../EaTrivial/build/Desktop_Qt_5_15_2_MSVC2019_64bit-Debug/debug/ -lEaTrivial
-else:unix: LIBS += -L$$PWD/../EaTrivial/build/build-HelloAnim-Desktop_Qt_5_15_5_shared_MinGW_w64_MINGW32_MSYS2-Release/ -lEaTrivial.dll
+# win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../EaTrivial/build/Desktop_Qt_5_15_2_MSVC2019_64bit-Release/release/ -lEaTrivial
+# else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../EaTrivial/build/Desktop_Qt_5_15_2_MSVC2019_64bit-Debug/debug/ -lEaTrivial
+# else:unix: LIBS += -L$$PWD/../EaTrivial/build/build-HelloAnim-Desktop_Qt_5_15_5_shared_MinGW_w64_MINGW32_MSYS2-Release/ -lEaTrivial.dll
 
-INCLUDEPATH += $$PWD/../EaTrivial
-DEPENDPATH += $$PWD/../EaTrivial
+# INCLUDEPATH += $$PWD/../EaTrivial
+# DEPENDPATH += $$PWD/../EaTrivial

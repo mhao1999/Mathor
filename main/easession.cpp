@@ -639,6 +639,31 @@ void EaSession::addPtOnCircleConstraint(int pointId, int centerPointId, double r
              << "for point" << pointId << "on circle with center" << centerPointId << "radius" << radius;
 }
 
+void EaSession::addSymmetricLineConstraint(int point1Id, int point2Id, int lineId)
+{
+    // 验证点和线段是否存在
+    EaPoint* point1 = getPoint(point1Id);
+    EaPoint* point2 = getPoint(point2Id);
+    EaLine* line = getLine(lineId);
+    
+    if (!point1 || !point2 || !line) {
+        qWarning() << "EaSession: Cannot add symmetric line constraint - invalid point or line IDs:" << point1Id << point2Id << lineId;
+        return;
+    }
+    
+    // 添加关于直线对称的约束
+    Constraint symmetricLineConstraint(m_nextConstraintId++, "symmetric_line");
+    symmetricLineConstraint.data["point1"] = point1Id;
+    symmetricLineConstraint.data["point2"] = point2Id;
+    symmetricLineConstraint.data["line"] = lineId;
+    symmetricLineConstraint.data["type"] = "SLVS_C_SYMMETRIC_LINE";
+    
+    m_constraints.push_back(symmetricLineConstraint);
+    
+    qDebug() << "EaSession: Added symmetric line constraint" << symmetricLineConstraint.id 
+             << "for points" << point1Id << "and" << point2Id << "about line" << lineId;
+}
+
 void EaSession::createPtInLineConstraint()
 {
     this->clear();
@@ -809,6 +834,30 @@ void EaSession::createLineTangentConstraint()
 
     qDebug() << "EaSession: Created arc-line tangent constraint between arc" << arcId << "and line" << lineId;
     qDebug() << "EaSession: Points - centerPt:" << centerPt << "pt1:" << pt1 << "pt2:" << pt2;
+}
+
+void EaSession::createSymmConstraint()
+{
+    this->clear();
+    
+    // 创建四个点：两个对称点，对称轴的两个端点
+    int pt1 = this->addPoint(50.0, 100.0);   // 对称点1（可拖动）
+    int pt2 = this->addPoint(150.0, 100.0);  // 对称点2（自动对称）
+    int pt3 = this->addPoint(100.0, 50.0);   // 对称轴端点1（固定）
+    int pt4 = this->addPoint(100.0, 150.0);  // 对称轴端点2（固定）
+    
+    // 创建对称轴线段（独立的垂直线段）
+    int line1 = this->addLine(pt3, pt4);     // 对称轴线段
+    
+    // 固定对称轴的两个端点，使对称轴保持稳定
+    this->createFixPointConstraint(pt3);
+    this->createFixPointConstraint(pt4);
+    
+    // 添加关于直线对称的约束
+    this->addSymmetricLineConstraint(pt1, pt2, line1);
+    
+    qDebug() << "EaSession: Created symmetric line constraint with points" << pt1 << pt2 << "and line" << line1;
+    qDebug() << "EaSession: Points" << pt3 << "and" << pt4 << "are fixed (symmetry axis), point" << pt1 << "can be dragged, point" << pt2 << "will maintain symmetry";
 }
 
 void EaSession::removeConstraint(int constraintId)

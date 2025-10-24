@@ -96,6 +96,7 @@ public slots:
     void addArcLineTangentConstraint(int arcId, int lineId);
     void addPtOnLineConstraint(int pointId, int lineId);
     void addPtOnCircleConstraint(int pointId, int centerPointId, double radius);
+    void addSymmetricLineConstraint(int point1Id, int point2Id, int lineId);
     void clear();
     void createConstraint1();
     void createGongdianConstraint();
@@ -107,6 +108,7 @@ public slots:
     void createVerticalConstraint();
     void createAngleConstraint();
     void createLineTangentConstraint();
+    void createSymmConstraint();
     // 更新几何元素
     void updatePointPosition(int pointId, double x, double y, double z = 0.0);
 
